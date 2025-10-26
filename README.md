@@ -3,7 +3,7 @@
 
   
 
-Wallet Service API
+Base project API
 
   
 
@@ -81,13 +81,13 @@ $  yarn  run  test:cov
 ## Deployment
 Supongamos que vas agregar un nuevo módulo para `productos`. Vas a generar una estructura de carpetas así:
 
-    wallet-service/
+    base_project/
     ├── package.json
     ├── tsconfig.json
     ├── src/
     │   ├── main.ts
-    │   ├── app.module.ts
-    │   ├── other-projects...
+    │   ├── AppModule.ts
+    │   ├── other-modules...
     │   └── product/
     │       ├── controller
     │          ├── ProductController.ts
@@ -96,6 +96,7 @@ Supongamos que vas agregar un nuevo módulo para `productos`. Vas a generar una 
     │       └── entity
     │           └── User.ts
     │       └── UserModule.ts
+    
 La primera cosa que tienes que notar es que todas las carpetas están en `ingles` y `singular`. En este ejemplo, el archivo `entity/User.ts` es la entidad que representa la información que se almacenará en la base de datos. Este nuevo archivo será utilizado por `typeorm` para generar un archivo de migración que creará la respectiva tabla con los campos y tipos necesarios.
 
 El siguiente comando generará un archivo de migración dentro de `/src/database/migrations` con todo lo necesario para almacenar el base de datos `entity/User.ts`. **NOTA:** No olvides incluir `DEPLOY_ENV` en los comandos siguientes.
