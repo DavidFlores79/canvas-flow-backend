@@ -8,6 +8,8 @@ import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { CoreModule } from './core/CoreModule.js';
 import { InvestmentProductModule } from './investment-products/InvestmentProductModule';
 import { DatabaseModule } from './database/DatabaseModule';
+import { AuthModule } from './auth/AuthModule';
+import { UserModule } from './users/UserModule';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { DatabaseModule } from './database/DatabaseModule';
     DatabaseModule,
     CoreModule,
     InvestmentProductModule,
+    UserModule,
+    AuthModule,
   ],
   providers: [
     {
