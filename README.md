@@ -7,54 +7,82 @@ Base project API
 
   
 
-## Install PostgreSQL
+## Project Setup
 
-If you are using docker just run:
+### Option 1: Using Docker (Recommended)
 
 ```bash
+# Start all services (API + PostgreSQL)
+$ docker-compose up -d
 
-$  docker  run  -d  -p  5432:5432  postgres
+# View logs
+$ docker-compose logs -f
 
+# Stop services
+$ docker-compose down
 ```
 
-This command will install PostgreSQL and expose the 5432 port.
+The API will be available at `http://localhost:3000`
 
-  
+### Option 2: Local Development
 
-## Project setup
-
-  
+**Prerequisites:**
+- Node.js v22.x or higher
+- PostgreSQL 16
+- Yarn package manager
 
 ```bash
+# Install dependencies
+$ yarn install
 
-$  yarn  install
+# Make sure PostgreSQL is running locally
+$ docker run -d -p 5432:5432 --name wallet-db \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=wallet-service \
+  postgres:16
 
+# Set environment variable (Windows PowerShell)
+$ $env:DEPLOY_ENV="local"
+
+# Set environment variable (Linux/Mac)
+$ export DEPLOY_ENV=local
+
+# Run migrations
+$ yarn db:migrate
+
+# Start the application in watch mode
+$ yarn run start:dev
 ```
 
-  
+## Compile and Run the Project
 
-## Compile and run the project
-
-  
+### Using Docker
 
 ```bash
+# Build and start all services
+$ docker-compose up -d
 
-# development
+# Restart API after code changes
+$ docker-compose restart base-project-nest
 
-$  yarn  run  start
+# View API logs
+$ docker-compose logs -f base-project-nest
 
-  
+# Build production Docker image
+$ docker build -t base-project-nest .
+```
 
-# watch mode
+### Local Development
 
-$  yarn  run  start:dev
+```bash
+# development mode
+$ yarn run start
 
-  
+# watch mode (hot reload)
+$ yarn run start:dev
 
 # production mode
-
-$  yarn  run  start:prod
-
+$ yarn run start:prod
 ```
 
   
@@ -79,7 +107,10 @@ $  yarn  run  test:cov
   
 
 ## Deployment
-Supongamos que vas agregar un nuevo módulo para `productos`. Vas a generar una estructura de carpetas así:
+
+### Adding a New Module
+
+To add a new business module, follow the pattern established in existing modules (`users`, `auth`, `sms-validation`). Here's an example folder structure:
 
     base_project/
     ├── package.json
@@ -87,28 +118,70 @@ Supongamos que vas agregar un nuevo módulo para `productos`. Vas a generar una 
     ├── src/
     │   ├── main.ts
     │   ├── AppModule.ts
-    │   ├── other-modules...
-    │   └── product/
-    │       ├── controller
-    │          ├── ProductController.ts
-    │       └── service
-    │           └── UserService.ts
-    │       └── entity
-    │           └── User.ts
-    │       └── UserModule.ts
+    │   ├── users/        # Reference implementation
+    │   ├── auth/         # Reference implementation
+    │   ├── sms-validation/  # Reference implementation
+    │   └── [your-module]/   # Your new module
+    │       ├── controller/
+    │       │   ├── [Module]Controller.ts
+    │       │   └── [Module]Controller.spec.ts
+    │       ├── service/
+    │       │   ├── [Module]Service.ts
+    │       │   └── [Module]Service.spec.ts
+    │       ├── entity/
+    │       │   └── [Entity].ts
+    │       ├── dto/
+    │       ├── interface/
+    │       └── [Module]Module.ts
     
-La primera cosa que tienes que notar es que todas las carpetas están en `ingles` y `singular`. En este ejemplo, el archivo `entity/User.ts` es la entidad que representa la información que se almacenará en la base de datos. Este nuevo archivo será utilizado por `typeorm` para generar un archivo de migración que creará la respectiva tabla con los campos y tipos necesarios.
+**Important notes:**
+- All folders should be in **English** and **singular** form
+- The `entity/[Entity].ts` file defines the database schema
+- TypeORM uses entities to generate database migrations automatically
 
-El siguiente comando generará un archivo de migración dentro de `/src/database/migrations` con todo lo necesario para almacenar el base de datos `entity/User.ts`. **NOTA:** No olvides incluir `DEPLOY_ENV` en los comandos siguientes.
+### Generate and Run Database Migrations
+
+#### Using Docker (Recommended)
+
+This project uses Docker for database operations to ensure consistency across environments:
+
 ```bash
-$  DEPLOY_ENV=local yarn  migration:generate
+# 1. Generate migration (creates migration file from entity changes)
+$ docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn migration:generate"
+
+# 2. Run migration (applies changes to database)
+$ docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn db:migrate"
+
+# 3. Revert last migration (if needed)
+$ docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn migration:revert"
 ```
-Ejecuta la migración en base de datos, esto creará la(s) nueva(s) tabla(s) de todos los archivos dentro de la carpeta `entity`.
+
+#### Local Development (Without Docker)
+
+If you're running the project locally without Docker:
+
 ```bash
-$  yarn  build //no olvides compilar el código siempre antes de ejecutar las migraciones
-$  yarn  cp:env //copia los environment variables a la carpeta /dist
-$  DEPLOY_ENV=local yarn  db:migrate
-```  
+# Windows PowerShell
+$ $env:DEPLOY_ENV="local"
+$ yarn migration:generate
+$ yarn db:migrate
+
+# Linux/Mac
+$ export DEPLOY_ENV=local
+$ yarn migration:generate
+$ yarn db:migrate
+
+# Or set inline (Linux/Mac)
+$ DEPLOY_ENV=local yarn migration:generate
+$ DEPLOY_ENV=local yarn db:migrate
+```
+
+**Important Notes:** 
+- Always set `DEPLOY_ENV` environment variable (local, development, production, sandbox)
+- Migrations are generated automatically from your TypeORM entities
+- The migration files are created in `src/database/migrations/`
+- Build is automatically included in the migration:generate command
+- Docker method is preferred to avoid cross-platform command issues  
 
 ## Resources
 Check out a few resources that may come in handy when working with NestJS:
