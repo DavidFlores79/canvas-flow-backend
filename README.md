@@ -1,11 +1,6 @@
-
 ## Description
 
-  
-
 Base project API
-
-  
 
 ## Project Setup
 
@@ -27,6 +22,7 @@ The API will be available at `http://localhost:3000`
 ### Option 2: Local Development
 
 **Prerequisites:**
+
 - Node.js v22.x or higher
 - PostgreSQL 16
 - Yarn package manager
@@ -85,26 +81,20 @@ $ yarn run start:dev
 $ yarn run start:prod
 ```
 
-  
-
 ## Run tests
-
-  
 
 ```bash
 
 # unit tests
 
 $  yarn  run  test
-  
+
 
 # test coverage
 
 $  yarn  run  test:cov
 
 ```
-
-  
 
 ## Deployment
 
@@ -133,8 +123,9 @@ To add a new business module, follow the pattern established in existing modules
     │       ├── dto/
     │       ├── interface/
     │       └── [Module]Module.ts
-    
+
 **Important notes:**
+
 - All folders should be in **English** and **singular** form
 - The `entity/[Entity].ts` file defines the database schema
 - TypeORM uses entities to generate database migrations automatically
@@ -176,14 +167,16 @@ $ DEPLOY_ENV=local yarn migration:generate
 $ DEPLOY_ENV=local yarn db:migrate
 ```
 
-**Important Notes:** 
+**Important Notes:**
+
 - Always set `DEPLOY_ENV` environment variable (local, development, production, sandbox)
 - Migrations are generated automatically from your TypeORM entities
 - The migration files are created in `src/database/migrations/`
 - Build is automatically included in the migration:generate command
-- Docker method is preferred to avoid cross-platform command issues  
+- Docker method is preferred to avoid cross-platform command issues
 
 ## Resources
+
 Check out a few resources that may come in handy when working with NestJS:
 
 - Visit the [TypeORM Documentation](https://docs.nestjs.com) to learn more about the ORM.

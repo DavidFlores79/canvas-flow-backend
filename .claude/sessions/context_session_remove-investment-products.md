@@ -116,11 +116,7 @@ The investment-products module is a **reference implementation pattern** in the 
 1. **Branch Created**: `feat/remove-investment-products` from `feat/fix-auth-users-modules`
 
 2. **Database Cleaned**:
-<<<<<<< HEAD
    - Dropped all tables from base-project-service database
-=======
-   - Dropped all tables from wallet-service database
->>>>>>> origin/main
    - Recreated uuid-ossp extension
 
 3. **Code Removed**:
