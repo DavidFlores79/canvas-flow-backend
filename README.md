@@ -79,7 +79,10 @@ $  yarn  run  test:cov
   
 
 ## Deployment
-Supongamos que vas agregar un nuevo módulo para `productos`. Vas a generar una estructura de carpetas así:
+
+### Adding a New Module
+
+To add a new business module, follow the pattern established in existing modules (`users`, `auth`, `sms-validation`). Here's an example folder structure:
 
     base_project/
     ├── package.json
@@ -87,28 +90,44 @@ Supongamos que vas agregar un nuevo módulo para `productos`. Vas a generar una 
     ├── src/
     │   ├── main.ts
     │   ├── AppModule.ts
-    │   ├── other-modules...
-    │   └── product/
-    │       ├── controller
-    │          ├── ProductController.ts
-    │       └── service
-    │           └── UserService.ts
-    │       └── entity
-    │           └── User.ts
-    │       └── UserModule.ts
+    │   ├── users/        # Reference implementation
+    │   ├── auth/         # Reference implementation
+    │   ├── sms-validation/  # Reference implementation
+    │   └── [your-module]/   # Your new module
+    │       ├── controller/
+    │       │   ├── [Module]Controller.ts
+    │       │   └── [Module]Controller.spec.ts
+    │       ├── service/
+    │       │   ├── [Module]Service.ts
+    │       │   └── [Module]Service.spec.ts
+    │       ├── entity/
+    │       │   └── [Entity].ts
+    │       ├── dto/
+    │       ├── interface/
+    │       └── [Module]Module.ts
     
-La primera cosa que tienes que notar es que todas las carpetas están en `ingles` y `singular`. En este ejemplo, el archivo `entity/User.ts` es la entidad que representa la información que se almacenará en la base de datos. Este nuevo archivo será utilizado por `typeorm` para generar un archivo de migración que creará la respectiva tabla con los campos y tipos necesarios.
+**Important notes:**
+- All folders should be in **English** and **singular** form
+- The `entity/[Entity].ts` file defines the database schema
+- TypeORM uses entities to generate database migrations automatically
 
-El siguiente comando generará un archivo de migración dentro de `/src/database/migrations` con todo lo necesario para almacenar el base de datos `entity/User.ts`. **NOTA:** No olvides incluir `DEPLOY_ENV` en los comandos siguientes.
+### Generate and Run Database Migrations
+
+This project uses Docker for database operations. **Always run migrations inside Docker containers:**
+
 ```bash
-$  DEPLOY_ENV=local yarn  migration:generate
+# 1. Generate migration (creates migration file from entity changes)
+$ docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn migration:generate"
+
+# 2. Run migration (applies changes to database)
+$ docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn db:migrate"
 ```
-Ejecuta la migración en base de datos, esto creará la(s) nueva(s) tabla(s) de todos los archivos dentro de la carpeta `entity`.
-```bash
-$  yarn  build //no olvides compilar el código siempre antes de ejecutar las migraciones
-$  yarn  cp:env //copia los environment variables a la carpeta /dist
-$  DEPLOY_ENV=local yarn  db:migrate
-```  
+
+**Important:** 
+- Always set `DEPLOY_ENV` environment variable (local, development, production)
+- Migrations are generated automatically from your TypeORM entities
+- The migration files are created in `/src/database/migrations/`
+- Build is automatically included in the migration:generate command  
 
 ## Resources
 Check out a few resources that may come in handy when working with NestJS:

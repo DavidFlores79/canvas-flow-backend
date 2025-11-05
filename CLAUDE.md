@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **base NestJS project template** designed to serve as a foundation for new API projects. It demonstrates best practices for NestJS architecture, database integration, error handling, and testing patterns. The `investment-products` module serves as a **reference example** showing how to structure new business modules and will be removed when creating actual projects from this template.
+This is a **base NestJS project template** designed to serve as a foundation for new API projects. It demonstrates best practices for NestJS architecture, database integration, error handling, and testing patterns. The existing modules (`users`, `auth`, `sms-validation`) serve as **reference examples** showing how to structure new business modules.
 
 ## Architecture
 
@@ -50,7 +50,7 @@ src/
     error/             # Custom error classes
     interface/         # Shared interfaces
 
-  [module-name]/       # Business modules (e.g., investment-products)
+  [module-name]/       # Business modules (e.g., users, auth, sms-validation)
     [Module]Module.ts  # Module definition
     controller/        # REST controllers
     dto/               # Module-specific DTOs
@@ -72,7 +72,7 @@ src/
 5. **Type Safety**: Strong typing throughout with TypeScript and class-validator
 6. **Error Handling**: Centralized exception handling with custom error types
 
-### Module Pattern (Reference: investment-products)
+### Module Pattern (Reference: users, auth, sms-validation)
 
 Each business module follows this structure:
 ```typescript
@@ -196,43 +196,54 @@ export DEPLOY_ENV=development  # Uses development.env + base.env
 - **Health Checks**: Core module provides `/health` endpoint via `@nestjs/terminus`
 - **Swagger Documentation**: Auto-generated API docs from decorators
 
-### Example Module Structure (investment-products)
+### Example Module Structure (Reference: users module)
 
 This serves as a **template** for creating new modules:
 
 #### Entity Pattern
 ```typescript
-@Entity('investment_products')
-export class InvestmentProduct {
+@Entity('users')
+export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 100 })
-  name: string;
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  firstName: string;
   
-  // Decimal handling, versioning, timestamps, etc.
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
+  updatedAt: Date;
+  
+  // Proper column naming, indexes, relationships, versioning, etc.
 }
 ```
 
 #### Service Pattern  
 ```typescript
 @Injectable()
-export class InvestmentProductService {
+export class UserService {
   constructor(
-    @InjectRepository(InvestmentProduct)
-    private repository: Repository<InvestmentProduct>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    private dataSource: DataSource,
   ) {}
   
   // CRUD operations with proper error handling
+  // Transaction management for complex operations
+  // Optimistic locking with version checking
 }
 ```
 
 #### Controller Pattern
 ```typescript
-@Controller('investment-products')
-@ApiTags('Investment Products')
-export class InvestmentProductController {
-  // RESTful endpoints with validation, documentation
+@Controller('users')
+@ApiTags('Users')
+export class UserController {
+  constructor(private readonly userService: UserService) {}
+  
+  // RESTful endpoints with validation, documentation, pagination
 }
 ```
 
@@ -242,14 +253,14 @@ export class InvestmentProductController {
 
 1. **Clone/Copy** this base project
 2. **Update `package.json`**: Change name, description, version
-3. **Remove Example Module**: Delete `investment-products/` directory
-4. **Update AppModule**: Remove InvestmentProductModule import
-5. **Environment Setup**: Configure environment files for your deployment
-6. **Database**: Update schema name, connection details
+3. **Review Existing Modules**: Study `users`, `auth`, and `sms-validation` as reference implementations
+4. **Environment Setup**: Configure environment files for your deployment
+5. **Database**: Update schema name, connection details
+6. **Remove/Modify Example Data**: Adapt existing modules or create new ones based on your needs
 
 ### Adding a New Business Module
 
-Follow the `investment-products` pattern:
+Follow the pattern established in existing modules (`users`, `auth`, `sms-validation`):
 
 1. **Create Module Directory**: `src/[module-name]/`
 2. **Define Entity**: Create TypeORM entity in `entity/[Entity].ts`
