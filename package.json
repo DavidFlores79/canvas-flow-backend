@@ -1,7 +1,7 @@
 {
-  "name": "wallet-service",
+  "name": "base-project-service",
   "version": "0.0.1",
-  "description": "Wallet Service API",
+  "description": "Base Project Service API",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
@@ -12,7 +12,7 @@
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "migration:generate": "yarn build && yarn cp:env && typeorm migration:generate src/database/migrations/migration --dataSource dist/src/database/data-source.js",
     "db:migrate": "node dist/scripts/db-migrate.js",
-    "migration:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert --dataSource data-source.ts",
+    "migration:revert": "yarn build && yarn cp:env && typeorm migration:revert --dataSource dist/src/database/data-source.js",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",

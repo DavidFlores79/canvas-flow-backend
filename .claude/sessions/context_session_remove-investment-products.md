@@ -60,7 +60,7 @@ The investment-products module is a **reference implementation pattern** in the 
 
 ### Step 2: Clean Database
 
-- Drop all tables in wallet-service database
+- Drop all tables in base-project-service database
 - Prepare for fresh migration run
 
 ### Step 3: Code Removal
@@ -116,7 +116,7 @@ The investment-products module is a **reference implementation pattern** in the 
 1. **Branch Created**: `feat/remove-investment-products` from `feat/fix-auth-users-modules`
 
 2. **Database Cleaned**:
-   - Dropped all tables from wallet-service database
+   - Dropped all tables from base-project-service database
    - Recreated uuid-ossp extension
 
 3. **Code Removed**:
