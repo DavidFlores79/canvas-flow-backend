@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-This is a **NestJS base template** demonstrating enterprise-grade API architecture with TypeORM, PostgreSQL, and comprehensive error handling. The `investment-products` module serves as a **reference implementation pattern** and should be used as a template for creating new business modules.
+This is a **NestJS base template** demonstrating enterprise-grade API architecture with TypeORM, PostgreSQL, and comprehensive error handling. The existing modules (`users`, `auth`, `sms-validation`) serve as **reference implementation patterns** and should be used as templates for creating new business modules.
 
 ## Architecture Patterns
 
-### Module Structure (Follow investment-products example)
+### Module Structure (Follow users, auth, or sms-validation as examples)
 ```
 src/[module-name]/
 ├── [Module]Module.ts          # NestJS module definition
@@ -23,8 +23,10 @@ src/[module-name]/
 │   └── [Entity]Dto.ts
 ├── entity/
 │   └── [Entity].ts               # TypeORM entity
-└── interface/
-    └── [Entity].ts               # TypeScript interfaces
+├── interface/
+│   └── [Entity].ts               # TypeScript interfaces
+└── enum/                      # Enums (if needed)
+    └── [Entity]Enum.ts
 ```
 
 ### Required Patterns
@@ -159,18 +161,31 @@ The `.claude/` folder contains the complete development workflow automation:
 
 ### Test Patterns
 ```typescript
-// Service Test Pattern
-describe('InvestmentProductService', () => {
-  let service: InvestmentProductService;
-  let repository: Repository<InvestmentProduct>;
+// Service Test Pattern (Reference: UserService.spec.ts)
+describe('UserService', () => {
+  let service: UserService;
+  let repository: Repository<User>;
+  let dataSource: DataSource;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        InvestmentProductService,
+        UserService,
         {
-          provide: getRepositoryToken(InvestmentProduct),
+          provide: getRepositoryToken(User),
           useClass: Repository,
+        },
+        {
+          provide: getRepositoryToken(Address),
+          useClass: Repository,
+        },
+        {
+          provide: DataSource,
+          useValue: mockDataSource,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
         },
       ],
     }).compile();
@@ -197,14 +212,14 @@ update-feedback <pr-number>
 ```
 
 ### Manual Implementation Steps:
-1. **Create module structure** following investment-products pattern
+1. **Create module structure** following users/auth/sms-validation pattern
 2. **Define TypeORM entity** with proper decorators and relationships
-3. **Generate migration**: `yarn migration:generate`
-4. **Implement service** with CRUD operations and custom business logic
-5. **Create controller** with validation, documentation, and error handling
-6. **Write comprehensive tests** for all functionality (Jest + Supertest)
-7. **Update AppModule.ts** to import new module
-8. **Run migration**: `yarn db:migrate`
+3. **Generate migration** inside Docker: `docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn migration:generate"`
+4. **Run migration** inside Docker: `docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn db:migrate"`
+5. **Implement service** with CRUD operations and custom business logic
+6. **Create controller** with validation, documentation, and error handling
+7. **Write comprehensive tests** for all functionality (Jest + Supertest)
+8. **Update AppModule.ts** to import new module
 
 ## Database Patterns
 
