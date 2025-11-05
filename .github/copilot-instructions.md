@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-This is a **NestJS base template** demonstrating enterprise-grade API architecture with TypeORM, PostgreSQL, and comprehensive error handling. The `investment-products` module serves as a **reference implementation pattern** and should be used as a template for creating new business modules.
+This is a **NestJS base template** demonstrating enterprise-grade API architecture with TypeORM, PostgreSQL, and comprehensive error handling. The existing modules (`users`, `auth`, `sms-validation`) serve as **reference implementation patterns** and should be used as templates for creating new business modules.
 
 ## Architecture Patterns
 
-### Module Structure (Follow investment-products example)
+### Module Structure (Follow users, auth, or sms-validation as examples)
 ```
 src/[module-name]/
 ├── [Module]Module.ts          # NestJS module definition
@@ -23,8 +23,10 @@ src/[module-name]/
 │   └── [Entity]Dto.ts
 ├── entity/
 │   └── [Entity].ts               # TypeORM entity
-└── interface/
-    └── [Entity].ts               # TypeScript interfaces
+├── interface/
+│   └── [Entity].ts               # TypeScript interfaces
+└── enum/                      # Enums (if needed)
+    └── [Entity]Enum.ts
 ```
 
 ### Required Patterns
@@ -42,7 +44,27 @@ src/[module-name]/
 ## Critical Developer Commands
 
 ```bash
+## Critical Developer Commands
+
+```bash
 # Development (always use yarn, never npm)
+yarn start:dev              # Hot reload development server
+yarn build && yarn cp:env   # Build with environment files
+
+# Database Operations
+yarn migration:generate     # Generate TypeORM migration after entity changes
+yarn db:migrate             # Run pending migrations
+yarn migration:revert       # Rollback last migration
+
+# Testing (NO EXCEPTIONS - all code must have tests)
+yarn test                   # Unit tests
+yarn test:cov              # Coverage report (must be >80%)
+yarn test:e2e              # End-to-end tests
+
+# Code Quality
+yarn lint:fix              # ESLint with auto-fix
+yarn format                # Prettier formatting
+```
 yarn start:dev              # Hot reload development server
 yarn build && yarn cp:env   # Build with environment files
 
@@ -97,12 +119,37 @@ import { Service } from './service/Service';
 - `create-new-gh-branch <feature-description>` - GitHub issue & branch creation
 - `start-working-on-branch-new <branch-name>` - TDD implementation with testing
 - `run-tests [scope]` - Comprehensive testing (unit/integration/e2e)
-- `update-feedback` - CI/CD feedback loop
+- `update-feedback <pr-number>` - CI/CD feedback loop until PR is merged
 
-### Session Management
-- Implementation plans saved in `.claude/sessions/context_session_{feature_name}.md`
-- Agent documentation in `.claude/doc/{feature_name}/nestjs-backend.md`
+### .Claude Folder Workflow Structure
+
+The `.claude/` folder contains the complete development workflow automation:
+
+#### Agents Available:
+- **`nestjs-backend-architect`** - Main agent for NestJS backend development
+- **`qa-criteria-validator`** - Acceptance criteria definition and Jest/Supertest validation
+- **`ui-ux-analyzer`** - For frontend apps only (not applicable to this NestJS backend)
+- **`angular-frontend-developer`** - For Angular frontend development
+- **`flutter-frontend-developer`** - For Flutter app development
+- **`laravel-backend-architect`** - For Laravel backend development
+
+#### Session Management:
+- **Implementation plans**: `.claude/sessions/context_session_{feature_name}.md`
+- **Agent documentation**: `.claude/doc/{feature_name}/nestjs-backend.md`
+- **QA validation plans**: `.claude/doc/{feature_name}/qa_validation_plan.md`
 - Always load session context before starting work on existing features
+
+#### Complete Workflow Process:
+1. **Planning Phase**: `explore-plan` creates session file with nestjs-backend-architect
+2. **Branch Creation**: `create-new-gh-branch` uses session info to create GitHub issue and branch
+3. **Development Phase**: `start-working-on-branch-new` implements using session plan and TDD
+4. **Testing Phase**: Integrated Jest unit tests, Supertest integration tests, and e2e tests
+5. **Feedback Loop**: `update-feedback` cycles through plan→implement→test until PR is merged
+
+#### Agent Selection for NestJS Projects:
+- **Backend API only**: Use `nestjs-backend-architect` + `qa-criteria-validator`
+- **NestJS + Angular**: Use `nestjs-backend-architect` + `angular-frontend-developer` + `qa-criteria-validator`
+- **NestJS + Flutter**: Use `nestjs-backend-architect` + `flutter-frontend-developer` + `qa-criteria-validator`
 
 ## Testing Requirements
 
@@ -114,18 +161,31 @@ import { Service } from './service/Service';
 
 ### Test Patterns
 ```typescript
-// Service Test Pattern
-describe('InvestmentProductService', () => {
-  let service: InvestmentProductService;
-  let repository: Repository<InvestmentProduct>;
+// Service Test Pattern (Reference: UserService.spec.ts)
+describe('UserService', () => {
+  let service: UserService;
+  let repository: Repository<User>;
+  let dataSource: DataSource;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        InvestmentProductService,
+        UserService,
         {
-          provide: getRepositoryToken(InvestmentProduct),
+          provide: getRepositoryToken(User),
           useClass: Repository,
+        },
+        {
+          provide: getRepositoryToken(Address),
+          useClass: Repository,
+        },
+        {
+          provide: DataSource,
+          useValue: mockDataSource,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
         },
       ],
     }).compile();
@@ -136,14 +196,30 @@ describe('InvestmentProductService', () => {
 
 ## Adding New Business Modules
 
-1. **Create module structure** following investment-products pattern
+### Using Claude Workflow (Recommended for Complex Features):
+```bash
+# 1. Plan architecture and create session
+explore-plan "Product catalog with categories and inventory management"
+
+# 2. Create GitHub issue and branch
+create-new-gh-branch "Product catalog with categories and inventory management"
+
+# 3. Implement with TDD using session plan
+start-working-on-branch-new feat/product-catalog
+
+# 4. Handle feedback until merged
+update-feedback <pr-number>
+```
+
+### Manual Implementation Steps:
+1. **Create module structure** following users/auth/sms-validation pattern
 2. **Define TypeORM entity** with proper decorators and relationships
-3. **Generate migration**: `yarn migration:generate`
-4. **Implement service** with CRUD operations and custom business logic
-5. **Create controller** with validation, documentation, and error handling
-6. **Write comprehensive tests** for all functionality
-7. **Update AppModule.ts** to import new module
-8. **Run migration**: `yarn db:migrate`
+3. **Generate migration** inside Docker: `docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn migration:generate"`
+4. **Run migration** inside Docker: `docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn db:migrate"`
+5. **Implement service** with CRUD operations and custom business logic
+6. **Create controller** with validation, documentation, and error handling
+7. **Write comprehensive tests** for all functionality (Jest + Supertest)
+8. **Update AppModule.ts** to import new module
 
 ## Database Patterns
 
