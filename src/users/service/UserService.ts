@@ -208,8 +208,8 @@ export class UserService {
           `Outdated version detected during update for user: ${id}`,
         );
         throw new OutdatedEntityVersionError(
-          'an old version of User  was detected during the update',
-          'InvestmentProduct',
+          'an old version of User was detected during the update',
+          'User',
           '409',
         );
       }
