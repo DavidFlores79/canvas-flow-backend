@@ -20,10 +20,10 @@ FROM toolchain AS builder
 ARG GITHUB_TOKEN
 
 RUN npm config set @paisamex:registry=https://npm.pkg.github.com && \
-    npm config set -- //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN} && \
-    yarn install --frozen-lockfile && \
-    yarn build && \
-    chown -R node:node /opt/app
+  npm config set -- //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN} && \
+  yarn install --frozen-lockfile && \
+  yarn build && \
+  chown -R node:node /opt/app
 
 USER node
 
@@ -56,8 +56,8 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 ARG GITHUB_TOKEN
 
 RUN npm config set @paisamex:registry=https://npm.pkg.github.com && \
-    npm config set -- //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN} && \
-    yarn install --production
+  npm config set -- //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN} && \
+  yarn install --production
 
 RUN chown -R node:node /opt/app
 
