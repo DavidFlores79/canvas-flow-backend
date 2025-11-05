@@ -145,12 +145,29 @@ The investment-products module is a **reference implementation pattern** in the 
 ✅ **Build**: Successful
 ✅ **Migration**: Applied successfully
 
-## Next Steps (Documentation - Step 5 from Plan)
+## Next Steps (Documentation - Step 5 from Plan) ✅ COMPLETED
 
-Still TODO:
-- [ ] Update README.md to remove investment-products references
-- [ ] Update CLAUDE.md / .github/copilot-instructions.md to update example patterns
-- [ ] Consider using a different module as the reference implementation example
+Documentation Updated:
+- ✅ Updated README.md - Added bilingual (Docker + local) instructions in English
+- ✅ Updated CLAUDE.md - Changed all references to users/auth/sms-validation modules
+- ✅ Updated .github/copilot-instructions.md - Updated example patterns and test references
+- ✅ All documentation now uses existing modules (users, auth, sms-validation) as reference implementations
+
+**Commits:**
+- b923b8b: "docs: update all documentation to reference existing modules instead of investment-products"
+- e8c0f14: "docs: add comprehensive Docker and local development instructions in English"
+
+## Workflow Status: READY FOR MERGE
+
+All implementation steps completed successfully:
+- ✅ Step 1: Create New Branch
+- ✅ Step 2: Clean Database
+- ✅ Step 3: Code Removal
+- ✅ Step 4: Run Fresh Migration
+- ✅ Step 5: Documentation Updates
+- ✅ Step 6: Testing (69/69 tests passing)
+
+**Next Action**: Merge `feat/remove-investment-products` branch according to team workflow
 
 ## Technical Notes
 
