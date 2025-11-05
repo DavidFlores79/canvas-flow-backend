@@ -7,54 +7,82 @@ Base project API
 
   
 
-## Install PostgreSQL
+## Project Setup
 
-If you are using docker just run:
+### Option 1: Using Docker (Recommended)
 
 ```bash
+# Start all services (API + PostgreSQL)
+$ docker-compose up -d
 
-$  docker  run  -d  -p  5432:5432  postgres
+# View logs
+$ docker-compose logs -f
 
+# Stop services
+$ docker-compose down
 ```
 
-This command will install PostgreSQL and expose the 5432 port.
+The API will be available at `http://localhost:3000`
 
-  
+### Option 2: Local Development
 
-## Project setup
-
-  
+**Prerequisites:**
+- Node.js v22.x or higher
+- PostgreSQL 16
+- Yarn package manager
 
 ```bash
+# Install dependencies
+$ yarn install
 
-$  yarn  install
+# Make sure PostgreSQL is running locally
+$ docker run -d -p 5432:5432 --name wallet-db \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=wallet-service \
+  postgres:16
 
+# Set environment variable (Windows PowerShell)
+$ $env:DEPLOY_ENV="local"
+
+# Set environment variable (Linux/Mac)
+$ export DEPLOY_ENV=local
+
+# Run migrations
+$ yarn db:migrate
+
+# Start the application in watch mode
+$ yarn run start:dev
 ```
 
-  
+## Compile and Run the Project
 
-## Compile and run the project
-
-  
+### Using Docker
 
 ```bash
+# Build and start all services
+$ docker-compose up -d
 
-# development
+# Restart API after code changes
+$ docker-compose restart base-project-nest
 
-$  yarn  run  start
+# View API logs
+$ docker-compose logs -f base-project-nest
 
-  
+# Build production Docker image
+$ docker build -t base-project-nest .
+```
 
-# watch mode
+### Local Development
 
-$  yarn  run  start:dev
+```bash
+# development mode
+$ yarn run start
 
-  
+# watch mode (hot reload)
+$ yarn run start:dev
 
 # production mode
-
-$  yarn  run  start:prod
-
+$ yarn run start:prod
 ```
 
   
@@ -113,7 +141,9 @@ To add a new business module, follow the pattern established in existing modules
 
 ### Generate and Run Database Migrations
 
-This project uses Docker for database operations. **Always run migrations inside Docker containers:**
+#### Using Docker (Recommended)
+
+This project uses Docker for database operations to ensure consistency across environments:
 
 ```bash
 # 1. Generate migration (creates migration file from entity changes)
@@ -121,13 +151,37 @@ $ docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn migration:gener
 
 # 2. Run migration (applies changes to database)
 $ docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn db:migrate"
+
+# 3. Revert last migration (if needed)
+$ docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn migration:revert"
 ```
 
-**Important:** 
-- Always set `DEPLOY_ENV` environment variable (local, development, production)
+#### Local Development (Without Docker)
+
+If you're running the project locally without Docker:
+
+```bash
+# Windows PowerShell
+$ $env:DEPLOY_ENV="local"
+$ yarn migration:generate
+$ yarn db:migrate
+
+# Linux/Mac
+$ export DEPLOY_ENV=local
+$ yarn migration:generate
+$ yarn db:migrate
+
+# Or set inline (Linux/Mac)
+$ DEPLOY_ENV=local yarn migration:generate
+$ DEPLOY_ENV=local yarn db:migrate
+```
+
+**Important Notes:** 
+- Always set `DEPLOY_ENV` environment variable (local, development, production, sandbox)
 - Migrations are generated automatically from your TypeORM entities
-- The migration files are created in `/src/database/migrations/`
-- Build is automatically included in the migration:generate command  
+- The migration files are created in `src/database/migrations/`
+- Build is automatically included in the migration:generate command
+- Docker method is preferred to avoid cross-platform command issues  
 
 ## Resources
 Check out a few resources that may come in handy when working with NestJS:
