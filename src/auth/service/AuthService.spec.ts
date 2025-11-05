@@ -37,8 +37,6 @@ describe('AuthService', () => {
     resendSmsCode: jest.fn(),
   };
 
-
-
   const mockDataSource = {
     transaction: jest.fn(),
     createQueryRunner: jest.fn(),

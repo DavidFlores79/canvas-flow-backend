@@ -289,8 +289,8 @@ export class SmsValidationService {
 
     if (result.affected === 0) {
       throw new OutdatedEntityVersionError(
-        'an old version of User Balance was detected during the update',
-        'InvestmentProduct',
+        'an old version of SMS Validation was detected during the update',
+        'SmsValidation',
         '409',
       );
     }
