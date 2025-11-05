@@ -37,7 +37,7 @@ CMD ["yarn", "start:dev"]
 FROM node:lts-alpine as production
 
 LABEL Author="Paisamex"
-LABEL Description="wallet service"
+LABEL Description="base project service"
 
 RUN apk add --no-cache bash curl jq aws-cli
 

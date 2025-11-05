@@ -38,7 +38,7 @@ $ yarn install
 # Make sure PostgreSQL is running locally
 $ docker run -d -p 5432:5432 --name wallet-db \
   -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=wallet-service \
+  -e POSTGRES_DB=base-project-service \
   postgres:16
 
 # Set environment variable (Windows PowerShell)
