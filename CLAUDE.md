@@ -99,23 +99,70 @@ src/[module-name]/
 
 ### Running the Application
 
+#### Using Docker (Recommended)
 ```bash
-yarn start:dev        # Development server with hot reload
-yarn start:debug      # Debug mode with hot reload
-yarn build            # Production build
-yarn start:prod       # Production server
+# Start all services (API + PostgreSQL)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f base-project-nest
+
+# Restart API after code changes
+docker-compose restart base-project-nest
+
+# Stop all services
+docker-compose down
+```
+
+The API will be available at `http://localhost:3000`
+
+#### Local Development (Without Docker)
+```bash
+# Prerequisites: Node.js v22.x, PostgreSQL 16, Yarn
+yarn install                  # Install dependencies
+yarn start:dev                # Development server with hot reload
+yarn start:debug              # Debug mode with hot reload
+yarn build                    # Production build
+yarn start:prod               # Production server
+
+# Set environment (required)
+# Windows PowerShell: $env:DEPLOY_ENV="local"
+# Linux/Mac: export DEPLOY_ENV=local
 ```
 
 ### Database Operations
 
+#### Using Docker (Recommended)
 ```bash
-# Database migrations
-yarn migration:generate   # Generate new migration
-yarn db:migrate          # Run pending migrations
-yarn migration:revert    # Revert last migration
+# Start all services (API + PostgreSQL)
+docker-compose up -d
 
-# Docker PostgreSQL (for development)
-docker run -d -p 5432:5432 postgres
+# Generate migration inside container
+docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn migration:generate"
+
+# Run migrations inside container
+docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn db:migrate"
+
+# Revert migration inside container
+docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn migration:revert"
+
+# View logs
+docker-compose logs -f base-project-nest
+```
+
+#### Local Development (Without Docker)
+```bash
+# Windows PowerShell
+$env:DEPLOY_ENV="local"
+yarn migration:generate
+yarn db:migrate
+yarn migration:revert
+
+# Linux/Mac
+export DEPLOY_ENV=local
+yarn migration:generate
+yarn db:migrate
+yarn migration:revert
 ```
 
 ### Testing
@@ -136,7 +183,10 @@ yarn lint:fix          # ESLint with auto-fix
 yarn format            # Prettier formatting
 ```
 
-**Always use yarn instead of npm.**
+**Important Notes:**
+- Always use **yarn** instead of npm
+- Set `DEPLOY_ENV` environment variable before running commands (local, development, sandbox, production)
+- Docker method is recommended for consistency across platforms
 
 ## Environment Configuration
 
@@ -198,9 +248,9 @@ export DEPLOY_ENV=development  # Uses development.env + base.env
 
 ### Example Module Structure (Reference: users module)
 
-This serves as a **template** for creating new modules:
+This serves as a **template** for creating new modules. Study [src/users/](src/users/) for complete implementation:
 
-#### Entity Pattern
+#### Entity Pattern ([User.ts](src/users/entity/User.ts))
 ```typescript
 @Entity('users')
 export class User {
@@ -209,18 +259,21 @@ export class User {
 
   @Column({ type: 'varchar', length: 150, nullable: true })
   firstName: string;
-  
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })
   createdAt: Date;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
-  
-  // Proper column naming, indexes, relationships, versioning, etc.
+
+  @VersionColumn()
+  version: number; // For optimistic locking
+
+  // Proper column naming with snake_case in DB, camelCase in code
 }
 ```
 
-#### Service Pattern  
+#### Service Pattern ([UserService.ts](src/users/service/UserService.ts))
 ```typescript
 @Injectable()
 export class UserService {
@@ -229,20 +282,38 @@ export class UserService {
     private userRepository: Repository<User>,
     private dataSource: DataSource,
   ) {}
-  
-  // CRUD operations with proper error handling
+
+  async create(dto: CreateUserPayloadDto): Promise<User> {
+    try {
+      const user = this.userRepository.create(dto);
+      return await this.userRepository.save(user);
+    } catch (error) {
+      if (error.code === '23505') {
+        throw new DuplicateEntityError('User already exists', 'User', error.code);
+      }
+      throw error;
+    }
+  }
+
   // Transaction management for complex operations
   // Optimistic locking with version checking
 }
 ```
 
-#### Controller Pattern
+#### Controller Pattern ([UserController.ts](src/users/controller/UserController.ts))
 ```typescript
 @Controller('users')
 @ApiTags('Users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
-  
+
+  @Post()
+  @ApiOperation({ summary: 'Create a new user' })
+  @ApiResponse({ status: 201, type: UserDto })
+  async create(@Body() dto: CreateUserPayloadDto): Promise<UserDto> {
+    return this.userService.create(dto);
+  }
+
   // RESTful endpoints with validation, documentation, pagination
 }
 ```
@@ -260,16 +331,18 @@ export class UserController {
 
 ### Adding a New Business Module
 
-Follow the pattern established in existing modules (`users`, `auth`, `sms-validation`):
+Follow the pattern established in existing modules ([users](src/users/), [auth](src/auth/), [sms-validation](src/sms-validation/)):
 
-1. **Create Module Directory**: `src/[module-name]/`
-2. **Define Entity**: Create TypeORM entity in `entity/[Entity].ts`
-3. **Create DTOs**: Request/response objects in `dto/`
-4. **Implement Service**: Business logic in `service/[Module]Service.ts`
-5. **Create Controller**: REST endpoints in `controller/[Module]Controller.ts`
-6. **Define Module**: NestJS module in `[Module]Module.ts`
-7. **Register Module**: Import in `AppModule.ts`
-8. **Generate Migration**: `yarn migration:generate`
+1. **Create Module Directory**: `src/[module-name]/` with subfolders: `controller/`, `service/`, `dto/`, `entity/`, `interface/`
+2. **Define Entity**: Create TypeORM entity in `entity/[Entity].ts` with proper decorators
+3. **Create DTOs**: Request/response objects in `dto/` with class-validator decorators
+4. **Implement Service**: Business logic in `service/[Module]Service.ts` with proper error handling
+5. **Create Controller**: REST endpoints in `controller/[Module]Controller.ts` with Swagger documentation
+6. **Write Tests**: `service/[Module]Service.spec.ts` and `controller/[Module]Controller.spec.ts`
+7. **Define Module**: NestJS module in `[Module]Module.ts` importing TypeORM entities
+8. **Register Module**: Import in [AppModule.ts](src/AppModule.ts)
+9. **Generate Migration**: Use Docker command or local `yarn migration:generate`
+10. **Run Migration**: Apply database changes with `yarn db:migrate`
 
 ### Module Checklist
 
@@ -365,12 +438,17 @@ For this NestJS base template, consider:
 ## Code Writing Standards
 
 - **Simplicity First**: Prefer simple, clean, maintainable solutions over clever ones
-- **ABOUTME Comments**: All files must start with 2-line comment with "ABOUTME: " prefix
+- **ABOUTME Comments**: All files must start with 2-line comment with "ABOUTME: " prefix for greppability
+  ```typescript
+  // ABOUTME: This service handles user CRUD operations and business logic
+  // ABOUTME: Includes transaction management for complex multi-entity operations
+  ```
 - **Minimal Changes**: Make smallest reasonable changes to achieve desired outcome
 - **Style Matching**: Match existing code style/formatting within each file
 - **Preserve Comments**: Never remove comments unless provably false
 - **No Temporal Naming**: Avoid 'new', 'improved', 'enhanced', 'recently' in names/comments
 - **Evergreen Documentation**: Comments describe code as it is, not its history
+- **No Unrelated Changes**: Don't change whitespace or format code unrelated to your task
 
 ## Version Control
 
@@ -382,13 +460,18 @@ For this NestJS base template, consider:
 ## Testing Requirements
 
 **NO EXCEPTIONS POLICY**: All projects MUST have:
-- Unit tests
+- Unit tests (Jest)
+- Integration tests (Supertest)
+- End-to-end tests
+- Minimum 80% code coverage
 
-The only way to skip tests: Fran EXPLICITLY states "I AUTHORIZE YOU TO SKIP WRITING TESTS THIS TIME."
+The only way to skip tests: David EXPLICITLY states "I AUTHORIZE YOU TO SKIP WRITING TESTS THIS TIME."
 
+### Test Execution
 - Tests must comprehensively cover all functionality
 - Test output must be pristine to pass
 - Never ignore system/test output - logs contain critical information
+- Use `yarn test:cov` to verify coverage requirements
 
 ## Architecture Compliance
 
@@ -406,11 +489,28 @@ The only way to skip tests: Fran EXPLICITLY states "I AUTHORIZE YOU TO SKIP WRIT
 ### Code Organization Rules
 
 1. **Module Structure**: Follow the established pattern (controller/, service/, dto/, entity/, interface/)
-2. **Naming Conventions**: PascalCase for classes, camelCase for methods/properties
-3. **Import Organization**: Group imports (NestJS, third-party, local)
-4. **Type Safety**: Strong typing throughout, avoid `any` type
+2. **Naming Conventions**:
+   - PascalCase for classes, interfaces, enums, types
+   - camelCase for methods, properties, variables
+   - snake_case for database column names (mapped to camelCase in entities)
+   - Folder names: singular, lowercase (e.g., `user/` not `users/`)
+3. **Import Organization**: Group imports in order:
+   ```typescript
+   // 1. NestJS imports
+   import { Injectable } from '@nestjs/common';
+   import { InjectRepository } from '@nestjs/typeorm';
+
+   // 2. Third-party imports
+   import { Repository } from 'typeorm';
+
+   // 3. Local imports (relative paths)
+   import { User } from '../entity/User';
+   import { CreateUserPayloadDto } from '../dto/CreateUserPayloadDto';
+   ```
+4. **Type Safety**: Strong typing throughout, avoid `any` type (noImplicitAny is disabled for gradual adoption)
 5. **Async/Await**: Use async/await for all asynchronous operations
-6. **Database Transactions**: Wrap multi-operation database calls in transactions
+6. **Database Transactions**: Wrap multi-operation database calls in transactions using DataSource
+7. **Error Handling**: Always use custom error classes from [shared/error/](src/shared/error/)
 
 
 ## Code Writing
@@ -442,14 +542,87 @@ The only way to skip tests: Fran EXPLICITLY states "I AUTHORIZE YOU TO SKIP WRIT
 - Stop and ask for help when stuck, especially when human input would be valuable
 - If considering an exception to any rule, stop and get explicit permission from David first
 
-## Testing
+## Test Patterns and Examples
 
-- Tests MUST comprehensively cover ALL implemented functionality. 
-- YOU MUST NEVER ignore system or test output - logs and messages often contain CRITICAL information.
-- Test output MUST BE PRISTINE TO PASS.
-- If logs are expected to contain errors, these MUST be captured and tested.
-- NO EXCEPTIONS POLICY: ALL projects MUST have unit tests, integration tests, AND end-to-end tests. The only way to skip any test type is if David EXPLICITLY states: "I AUTHORIZE YOU TO SKIP WRITING TESTS THIS TIME."
+### Service Test Pattern
+Reference the existing `UserService.spec.ts` for mocking patterns:
+```typescript
+describe('UserService', () => {
+  let service: UserService;
+  let repository: Repository<User>;
+  let dataSource: DataSource;
 
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        UserService,
+        { provide: getRepositoryToken(User), useClass: Repository },
+        { provide: DataSource, useValue: mockDataSource },
+      ],
+    }).compile();
+
+    service = module.get<UserService>(UserService);
+    repository = module.get<Repository<User>>(getRepositoryToken(User));
+  });
+
+  // Test cases covering all service methods
+});
+```
+
+### Controller Test Pattern
+Reference `UserController.spec.ts` for HTTP request/response testing with proper mocking.
+
+
+## Common Patterns and Pitfalls
+
+### Error Handling Pattern
+Always use custom error classes from [src/shared/error/](src/shared/error/):
+```typescript
+// Good
+if (error.code === '23505') {
+  throw new DuplicateEntityError('Entity exists', 'Entity', error.code);
+}
+if (!entity) {
+  throw new NotFoundEntityError('Entity not found', 'Entity');
+}
+
+// Bad - Never throw generic errors
+throw new Error('Something went wrong');
+```
+
+### Transaction Pattern
+For operations involving multiple database writes:
+```typescript
+async complexOperation(dto: CreateDto): Promise<Result> {
+  const queryRunner = this.dataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
+
+  try {
+    // Multiple operations
+    const entity = await queryRunner.manager.save(Entity, dto);
+    await queryRunner.manager.save(RelatedEntity, { entityId: entity.id });
+
+    await queryRunner.commitTransaction();
+    return entity;
+  } catch (error) {
+    await queryRunner.rollbackTransaction();
+    throw error;
+  } finally {
+    await queryRunner.release();
+  }
+}
+```
+
+### Common Pitfalls to Avoid
+- Never use `any` type - maintain strict TypeScript typing
+- Don't create controllers without corresponding unit tests
+- Avoid direct database queries - use repository pattern via `@InjectRepository()`
+- Never skip migration generation after entity changes
+- Don't implement business logic in controllers - keep them thin
+- Always validate input DTOs with class-validator decorators
+- Never commit without running `yarn test` and ensuring all tests pass
+- Don't forget to add `@ApiTags()`, `@ApiOperation()`, and `@ApiResponse()` to all endpoints
 
 ## Compliance Check
 Before submitting any work, verify that you have followed ALL guidelines above. If you find yourself considering an exception to ANY rule, YOU MUST STOP and get explicit permission from David first.

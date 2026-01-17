@@ -32,7 +32,7 @@ The API will be available at `http://localhost:3000`
 $ yarn install
 
 # Make sure PostgreSQL is running locally
-$ docker run -d -p 5432:5432 --name wallet-db \
+$ docker run -d -p 5432:5432 --name base-project-db \
   -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=base-project-service \
   postgres:16
