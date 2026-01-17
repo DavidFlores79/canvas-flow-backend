@@ -31,24 +31,24 @@ explore-plan "User authentication with JWT tokens and role-based permissions"
 
 ---
 
-### 🎯 **Step 2: Branch & Issue Creation**
+### 🎯 **Step 2: Create Feature Branch**
 
-#### Command: `create-new-gh-branch <feature-description>`
+#### Manual Git Command:
 ```bash
 # Example:
-create-new-gh-branch "User authentication with JWT tokens and role-based permissions"
+git checkout -b feat/user-authentication develop
 ```
 
 **What it does:**
-- **Loads session file** from explore-plan with implementation plan
-- Creates detailed GitHub issue with technical requirements from session
-- **Creates feature branch:** `git checkout -b feat/user-authentication develop`
-- Uses information from explore-plan session for consistency
-- Includes Definition of Done with >80% test coverage
+- **Creates feature branch directly from develop** (no GitHub issues)
+- Branch naming conventions:
+  - `feat/` for new features
+  - `fix/` for bug fixes
+  - `refactor/` for refactoring
+  - `chore/` for maintenance tasks
 - Updates session file with branch name for next step
 
-**Agent Used:** None (uses session info from explore-plan)  
-**Output:** GitHub issue number, URL, and feature branch created
+**Note:** GitHub issues are NOT used in this workflow. Create branches directly.
 
 ---
 
@@ -96,7 +96,7 @@ run-tests coverage
 
 **What it does:**
 - **Auto-detects project technology:**
-  - **NestJS:** `npm test`, `npm run test:cov` (Jest + Supertest)
+  - **NestJS:** `yarn test`, `yarn test:cov` (Jest + Supertest) - **ALWAYS use yarn**
   - **Laravel:** `php artisan test --coverage` (PHPUnit + Pest)
   - **Angular:** `ng test --code-coverage` (Jasmine + Karma + Cypress)
   - **Flutter:** `flutter test --coverage` (flutter_test + mockito)
@@ -159,8 +159,7 @@ update-feedback 45
 **Manual Process:**
 - Once 1 reviewer approves + all CI checks pass
 - Merge PR to `develop` branch
-- Delete feature branch
-- Mark GitHub issue as completed
+- Delete feature branch locally and remotely
 
 ---
 
@@ -181,23 +180,35 @@ update-feedback 45
 
 ### Development Workflow:
 ```bash
-# 1. Create issue
-create-new-gh-issue "Feature description"
-
-# 2. Plan implementation  
+# 1. Plan implementation
 explore-plan "Feature description"
 
-# 3. Start development
-start-working-on-issue-new <issue-number>
+# 2. Create branch (manual - NO GitHub issues)
+git checkout -b feat/feature-name develop
 
-# 4. Run tests
-run-tests
+# 3. Start development
+start-working-on-branch-new feat/feature-name
+
+# 4. Run tests (ALWAYS use yarn)
+yarn test
+yarn test:cov
 
 # 5. Create PR (manual)
+git push origin feat/feature-name
 gh pr create --base develop --reviewer @teammate
 
-# 6. Handle feedback (if needed)
+# 6. Handle feedback (if needed - optional)
 update-feedback <pr-number>
+```
+
+### Package Management:
+**CRITICAL: Always use `yarn`, NEVER use `npm`**
+```bash
+yarn install           # Install dependencies
+yarn migration:generate  # Generate migration (auto-runs build + cp:env)
+yarn db:migrate        # Run migrations
+yarn test              # Run tests
+yarn test:cov          # Run tests with coverage
 ```
 
 ### Testing Commands:
@@ -229,9 +240,10 @@ Each workflow completion ensures:
 - ✅ Feature implemented with Clean Architecture
 - ✅ >80% test coverage achieved
 - ✅ All CI/CD checks passing
-- ✅ 1 reviewer approval obtained  
+- ✅ 1 reviewer approval obtained
 - ✅ Code merged to `develop` branch
-- ✅ GitHub issue marked completed
+- ✅ All commands use `yarn` (never npm)
+- ✅ Migrations generated using `yarn migration:generate`
 
 ---
 
@@ -242,22 +254,36 @@ Each workflow completion ensures:
 # 1. Plan first (creates session file, selects agents)
 explore-plan "Product catalog with search and filtering"
 
-# 2. Create issue + branch (uses session info, creates branch)
-create-new-gh-branch "Product catalog with search and filtering"
+# 2. Create branch manually (NO GitHub issues)
+git checkout -b feat/product-catalog develop
 
-# 3. Start development (works on existing branch, uses session agents)
+# 3. Start development (uses session plan and agents)
 start-working-on-branch-new feat/product-catalog
 
-# 4. Test thoroughly  
-run-tests coverage
+# 4. Create/modify entities
+# Edit src/products/entity/Product.ts
 
-# 4. Handle feedback loop (automatically cycles until merged)
-update-feedback 46
+# 5. Generate migration (ALWAYS use yarn)
+yarn migration:generate
 
-# This command will:
-# - Check PR status (reviews, CI, conflicts)  
-# - If issues found: re-run explore-plan → start-working-on-branch → run-tests
-# - Loop until: ✅ Approved ✅ CI Green ✅ No Conflicts ✅ Merged
+# 6. Run migration
+yarn db:migrate
 
-# Result: Professional-grade feature ready for production! 🎉
+# 7. Test thoroughly (ALWAYS use yarn)
+yarn test
+yarn test:cov
+
+# 8. Push and create PR
+git push origin feat/product-catalog
+gh pr create --base develop --title "feat: Product catalog" --body "Implementation details"
+
+# 9. Handle feedback loop if needed (optional)
+update-feedback <pr-number>
+
+# This workflow ensures:
+# - ✅ No GitHub issues created
+# - ✅ Always using yarn (never npm)
+# - ✅ Migrations from package.json scripts
+# - ✅ PRs target develop branch
+# - ✅ Professional-grade feature ready for production! 🎉
 ```

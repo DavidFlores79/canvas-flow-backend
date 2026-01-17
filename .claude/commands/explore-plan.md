@@ -38,6 +38,7 @@ Plan the development workflow:
 - **Base Branch**: Ensure we're branching from `develop` (create if doesn't exist)
 - **Target Branch**: All PRs will target `develop` branch
 - **Review Requirements**: 1 reviewer required before merging
+- **NO GitHub Issues**: Create branches directly, no issue tracking required
 
 # Advice
 Use in parallel the selected subagents to get knowledge and advice over the plan:
@@ -70,5 +71,8 @@ Evaluate the plan and iterate over it until we have the final plan with the comp
 - The target of this session is to create the comprehensive plan DON'T implement it
 - Always use conventional branch naming: `feat/{feature-name}`
 - Target branch is always `develop`
+- **NO GitHub issues** - branches are created directly
 - Consider the specific technology stack when selecting agents
 - Plan must include proper testing and documentation strategies
+- **NestJS projects: ALWAYS use `yarn`, NEVER `npm`**
+- **NestJS migrations: Use `yarn migration:generate` (package.json script)**

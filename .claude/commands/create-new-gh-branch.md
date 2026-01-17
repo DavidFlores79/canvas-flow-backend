@@ -1,5 +1,14 @@
 # Create New GitHub Branch
 
+**⚠️ DEPRECATED: This command is NOT used in the current workflow.**
+
+**Current Workflow:**
+- Create feature branches directly: `git checkout -b feat/feature-name develop`
+- NO GitHub issues are created
+- See `.claude/WORKFLOW-SUMMARY.md` for the correct workflow
+
+---
+
 ## Input
 Feature/Bug/Chore description: $ARGUMENTS
 
