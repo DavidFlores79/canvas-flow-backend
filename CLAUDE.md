@@ -184,9 +184,10 @@ yarn format            # Prettier formatting
 ```
 
 **Important Notes:**
-- Always use **yarn** instead of npm
+- **ALWAYS use yarn**, never npm
 - Set `DEPLOY_ENV` environment variable before running commands (local, development, sandbox, production)
 - Docker method is recommended for consistency across platforms
+- `yarn migration:generate` automatically runs `yarn build && yarn cp:env` before generating migrations
 
 ## Environment Configuration
 
@@ -333,16 +334,18 @@ export class UserController {
 
 Follow the pattern established in existing modules ([users](src/users/), [auth](src/auth/), [sms-validation](src/sms-validation/)):
 
-1. **Create Module Directory**: `src/[module-name]/` with subfolders: `controller/`, `service/`, `dto/`, `entity/`, `interface/`
-2. **Define Entity**: Create TypeORM entity in `entity/[Entity].ts` with proper decorators
-3. **Create DTOs**: Request/response objects in `dto/` with class-validator decorators
-4. **Implement Service**: Business logic in `service/[Module]Service.ts` with proper error handling
-5. **Create Controller**: REST endpoints in `controller/[Module]Controller.ts` with Swagger documentation
-6. **Write Tests**: `service/[Module]Service.spec.ts` and `controller/[Module]Controller.spec.ts`
-7. **Define Module**: NestJS module in `[Module]Module.ts` importing TypeORM entities
-8. **Register Module**: Import in [AppModule.ts](src/AppModule.ts)
-9. **Generate Migration**: Use Docker command or local `yarn migration:generate`
-10. **Run Migration**: Apply database changes with `yarn db:migrate`
+1. **Create Feature Branch**: `git checkout -b feat/module-name develop`
+2. **Create Module Directory**: `src/[module-name]/` with subfolders: `controller/`, `service/`, `dto/`, `entity/`, `interface/`
+3. **Define Entity**: Create TypeORM entity in `entity/[Entity].ts` with proper decorators
+4. **Generate Migration**: Run `yarn migration:generate` (automatically builds first)
+5. **Create DTOs**: Request/response objects in `dto/` with class-validator decorators
+6. **Implement Service**: Business logic in `service/[Module]Service.ts` with proper error handling
+7. **Create Controller**: REST endpoints in `controller/[Module]Controller.ts` with Swagger documentation
+8. **Write Tests**: `service/[Module]Service.spec.ts` and `controller/[Module]Controller.spec.ts`
+9. **Define Module**: NestJS module in `[Module]Module.ts` importing TypeORM entities
+10. **Register Module**: Import in [AppModule.ts](src/AppModule.ts)
+11. **Run Migration**: Apply database changes with `yarn db:migrate`
+12. **Create PR**: Push branch and create PR against `develop`
 
 ### Module Checklist
 
@@ -370,11 +373,15 @@ This project uses a sophisticated Claude workflow system with specialized comman
 
 #### Available Commands:
 - **`explore-plan <feature-description>`**: Feature planning & architecture design
-- **`create-new-gh-branch <feature-description>`**: GitHub issue & branch creation
 - **`start-working-on-branch-new <branch-name>`**: Begin development on feature branch
 - **`run-tests [scope]`**: Execute comprehensive testing
-- **`update-feedback`**: Continuous integration feedback loop
 - **`analyze_bug`**: Bug analysis and resolution planning
+
+**Workflow Notes:**
+- **No GitHub issues required** - create feature branches directly from `develop`
+- Branch naming: `feat/`, `fix/`, `refactor/`, `chore/`
+- Always create PRs against `develop` branch
+- **Always use yarn** for all package management and scripts
 
 #### Specialized Agents:
 - **`nestjs-backend-architect`**: NestJS module architecture, Clean Architecture, dependency injection
@@ -453,9 +460,14 @@ For this NestJS base template, consider:
 ## Version Control
 
 - Non-trivial edits must be tracked in git
-- Create WIP branches for new work
+- **Branch Workflow**:
+  - Create feature branches from `develop`: `git checkout -b feat/feature-name develop`
+  - Branch naming: `feat/`, `fix/`, `refactor/`, `chore/`
+  - **No GitHub issues required** - create branches directly
+  - Always create PRs against `develop` branch
 - Commit frequently throughout development
 - Never throw away implementations without explicit permission
+- **Always use yarn** for all package operations
 
 ## Testing Requirements
 
