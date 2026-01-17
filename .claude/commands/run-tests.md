@@ -26,18 +26,21 @@ Automatically detect the technology being used:
 ## Step 2: Technology-Specific Test Execution
 
 ### 🎯 **NestJS Backend Tests**
+
+**CRITICAL: ALWAYS use `yarn`, NEVER use `npm`**
+
 ```bash
 # Unit Tests
-npm run test
+yarn test
 
-# Integration Tests  
-npm run test:e2e
+# Integration Tests
+yarn test:e2e
 
 # Coverage Report
-npm run test:cov
+yarn test:cov
 
 # Watch Mode (for development)
-npm run test:watch
+yarn test:watch
 ```
 
 **Expected Structure:**
