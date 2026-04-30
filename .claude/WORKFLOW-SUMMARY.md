@@ -205,8 +205,6 @@ update-feedback <pr-number>
 **CRITICAL: Always use `yarn`, NEVER use `npm`**
 ```bash
 yarn install           # Install dependencies
-yarn migration:generate  # Generate migration (auto-runs build + cp:env)
-yarn db:migrate        # Run migrations
 yarn test              # Run tests
 yarn test:cov          # Run tests with coverage
 ```
@@ -243,7 +241,6 @@ Each workflow completion ensures:
 - ✅ 1 reviewer approval obtained
 - ✅ Code merged to `develop` branch
 - ✅ All commands use `yarn` (never npm)
-- ✅ Migrations generated using `yarn migration:generate`
 
 ---
 
@@ -260,16 +257,7 @@ git checkout -b feat/product-catalog develop
 # 3. Start development (uses session plan and agents)
 start-working-on-branch-new feat/product-catalog
 
-# 4. Create/modify entities
-# Edit src/products/entity/Product.ts
-
-# 5. Generate migration (ALWAYS use yarn)
-yarn migration:generate
-
-# 6. Run migration
-yarn db:migrate
-
-# 7. Test thoroughly (ALWAYS use yarn)
+# 5. Test thoroughly (ALWAYS use yarn)
 yarn test
 yarn test:cov
 
@@ -283,7 +271,6 @@ update-feedback <pr-number>
 # This workflow ensures:
 # - ✅ No GitHub issues created
 # - ✅ Always using yarn (never npm)
-# - ✅ Migrations from package.json scripts
 # - ✅ PRs target develop branch
 # - ✅ Professional-grade feature ready for production! 🎉
 ```

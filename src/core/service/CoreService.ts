@@ -5,14 +5,14 @@ import { SiteInformationDto } from '../dto/SiteInformationDto';
 import {
   HealthCheckResult,
   HealthCheckService,
-  TypeOrmHealthIndicator,
+  MongooseHealthIndicator,
 } from '@nestjs/terminus';
 
 @Injectable()
 export class CoreService {
   constructor(
     private healthCheckService: HealthCheckService,
-    private db: TypeOrmHealthIndicator,
+    private db: MongooseHealthIndicator,
   ) {}
 
   async healthcheck(): Promise<HealthCheckResult> {

@@ -1,7 +1,7 @@
 // src/users/dto/address.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { Address } from '../entity/Address';
+import { Address } from '../schemas/AddressSchema';
 
 export class AddressDto {
   @ApiProperty({
@@ -103,7 +103,6 @@ export class AddressDto {
 
   static buildDto(address: Address): AddressDto {
     const dto = new AddressDto();
-    dto.id = address.id;
     dto.street = address.street;
     dto.externalNumber = address.externalNumber;
     dto.internalNumber = address.internalNumber;

@@ -13,9 +13,8 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { SmsValidationService } from '../../sms-validation/service/SmsValidationService';
 
-import { DataSource } from 'typeorm';
 import { Status, Group } from '../../users/enum/UserEnum';
-import { User } from '../../users/entity/User';
+import { User } from '../../users/schemas/UserSchema';
 import { RefreshTokenResponseDto } from '../dto/RefeshTokenResponseDto';
 import { ValidateUserPasswordPayloadDto } from '../dto/ValidateUserPasswordPayloadDto';
 import { JwtDto } from '../dto/JwtDto';
@@ -35,12 +34,6 @@ describe('AuthService', () => {
     sendSmsCode: jest.fn(),
     validateSmsCode: jest.fn(),
     resendSmsCode: jest.fn(),
-  };
-
-  const mockDataSource = {
-    transaction: jest.fn(),
-    createQueryRunner: jest.fn(),
-    getRepository: jest.fn(),
   };
 
   const mockConfigService = {
@@ -82,7 +75,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: UserService, useValue: mockUserService },
         { provide: SmsValidationService, useValue: mockSmsValidationService },
-        { provide: DataSource, useValue: mockDataSource },
+
         { provide: ConfigService, useValue: mockConfigService },
         { provide: JwtService, useValue: mockJwtService },
       ],

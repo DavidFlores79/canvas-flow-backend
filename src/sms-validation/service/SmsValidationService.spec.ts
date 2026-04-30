@@ -6,12 +6,15 @@ import {
   UnprocessableEntityException,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+
 import { randomUUID } from 'crypto';
 
 import { SmsValidationService } from './SmsValidationService';
-import { SmsValidation } from '../entity/SmsValidation';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import {
+  SmsValidation,
+  SmsValidationDocument,
+} from '../schemas/SmsValidationSchema';
+import { getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 import { SmsValidationProvider } from '../enum/SmsValidationProvider';
 import { SmsValidationStatus } from '../enum/SmsValidationStatus';
@@ -19,14 +22,33 @@ import { SmsValidationAction } from '../enum/SmsValidationAction';
 import { Status } from '../../users/enum/UserEnum';
 import { OutdatedEntityVersionError } from '../../shared/error/OutdatedEntityVersionError';
 
-const createMockRepository = () => ({
-  findOne: jest.fn(),
-  save: jest.fn(),
-  create: jest.fn(),
-  update: jest.fn(),
-  existsBy: jest.fn(),
-  createQueryBuilder: jest.fn(),
-});
+type MockModel = {
+  new (dto: any): any;
+  findOne: jest.Mock;
+  exists: jest.Mock;
+  findOneAndUpdate: jest.Mock;
+  updateOne: jest.Mock;
+};
+
+const createMockRepository = (): MockModel => {
+  const mockModel = function (this: any, dto: any) {
+    Object.assign(this, dto);
+    const self = this as { _id: any; save: jest.Mock };
+    self._id = {
+      toString: () =>
+        ((this as Record<string, unknown>).id as string) || 'test-id',
+    };
+    self.save = jest.fn().mockResolvedValue(this);
+  } as unknown as MockModel;
+
+  mockModel.findOne = jest
+    .fn()
+    .mockReturnValue({ sort: jest.fn().mockReturnValue({ exec: jest.fn() }) });
+  mockModel.exists = jest.fn();
+  mockModel.findOneAndUpdate = jest.fn().mockReturnValue({ exec: jest.fn() });
+  mockModel.updateOne = jest.fn().mockReturnValue({ exec: jest.fn() });
+  return mockModel;
+};
 
 interface MockVerifyServices {
   verifications: { create: jest.Mock };
@@ -43,13 +65,15 @@ interface MockTwilioClient {
 
 describe('SmsValidationService', () => {
   let service: SmsValidationService;
-  let repo: ReturnType<typeof createMockRepository>;
+  let repo: MockModel;
   let configService: { get: jest.Mock };
-  let dataSource: { transaction: jest.Mock };
   let twilioClient: MockTwilioClient;
 
   const fakeSmsValidation = new SmsValidation();
   fakeSmsValidation.id = randomUUID();
+  (fakeSmsValidation as unknown as Record<string, any>)._id = {
+    toString: () => fakeSmsValidation.id,
+  };
   fakeSmsValidation.userId = 'user-1';
   fakeSmsValidation.phone = '5512345678';
   fakeSmsValidation.smsRequestDate = new Date(Date.now() - 1000 * 60 * 10);
@@ -72,39 +96,11 @@ describe('SmsValidationService', () => {
       return undefined;
     });
 
-    dataSource = {
-      transaction: jest
-        .fn()
-        .mockImplementation(
-          (cb: (em: Record<string, jest.Mock>) => Promise<unknown>) => {
-            const em = {
-              create: jest.fn(
-                (_cls: unknown, payload: Record<string, unknown>) => ({
-                  ...payload,
-                }),
-              ),
-              save: jest.fn((ent: Record<string, unknown>) =>
-                Promise.resolve({
-                  ...ent,
-                  id: randomUUID(),
-                  createdAt: new Date(),
-                  updatedAt: new Date(),
-                }),
-              ),
-              find: jest.fn(),
-              createQueryBuilder: jest.fn(),
-            };
-            return cb(em);
-          },
-        ),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SmsValidationService,
-        { provide: getRepositoryToken(SmsValidation), useValue: repo },
+        { provide: getModelToken(SmsValidation.name), useValue: repo },
         { provide: ConfigService, useValue: configService },
-        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
 
@@ -168,30 +164,11 @@ describe('SmsValidationService', () => {
         sid: 'SID123',
         dateCreated: new Date().toISOString(),
       });
-      const createdEntity = {
-        userId: 'user-1',
-        phone: '5512345678',
-        smsAction: SmsValidationAction.CONFIRM_SIGN_UP,
-        smsServiceSid: 'VSID',
-        smsRequestSid: 'SID123',
-        smsStatus: SmsValidationStatus.PENDING,
-        status: Status.REGISTERED,
-        smsProvider: SmsValidationProvider.TWILIO,
-      };
-      repo.create.mockReturnValue(createdEntity as any);
-      repo.save.mockResolvedValue({
-        ...createdEntity,
-        id: randomUUID(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any);
       const res = await service.sendSmsCode({
         userId: 'user-1',
         phone: '5512345678',
         smsAction: SmsValidationAction.CONFIRM_SIGN_UP,
       });
-      expect(repo.create).toHaveBeenCalled();
-      expect(repo.save).toHaveBeenCalled();
       expect(res).toHaveProperty('id');
       expect(res.phone).toBe('5512345678');
     });
@@ -199,7 +176,11 @@ describe('SmsValidationService', () => {
 
   describe('findByUserId', () => {
     it('throws NotFoundException when not found', async () => {
-      repo.findOne.mockResolvedValueOnce(null);
+      repo.findOne.mockReturnValueOnce({
+        sort: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+      } as any);
       await expect(service.findByUserId(randomUUID())).rejects.toBeInstanceOf(
         NotFoundException,
       );
@@ -207,7 +188,11 @@ describe('SmsValidationService', () => {
     });
 
     it('returns entity when found', async () => {
-      repo.findOne.mockResolvedValueOnce(fakeSmsValidation);
+      repo.findOne.mockReturnValueOnce({
+        sort: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(fakeSmsValidation),
+        }),
+      } as any);
       const res = await service.findByUserId('user-1');
       expect(res).toEqual(fakeSmsValidation);
     });
@@ -215,14 +200,22 @@ describe('SmsValidationService', () => {
 
   describe('validateSmsCode', () => {
     it('throws NotFoundException when validation not found', async () => {
-      repo.findOne.mockResolvedValueOnce(null);
+      repo.findOne.mockReturnValueOnce({
+        sort: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+      } as any);
       await expect(
         service.validateSmsCode({ id: 'x', code: '1234' }),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('throws UnprocessableEntityException when twilio response invalid', async () => {
-      repo.findOne.mockResolvedValueOnce(fakeSmsValidation);
+      repo.findOne.mockReturnValueOnce({
+        sort: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(fakeSmsValidation),
+        }),
+      } as any);
       twilioClient.verify.v2
         .services()
         .verificationChecks.create.mockResolvedValue({ valid: false });
@@ -232,47 +225,47 @@ describe('SmsValidationService', () => {
     });
 
     it('updates sms validation on success', async () => {
-      repo.findOne.mockResolvedValueOnce(fakeSmsValidation);
+      repo.findOne.mockReturnValueOnce({
+        sort: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(fakeSmsValidation),
+        }),
+      } as any);
       twilioClient.verify.v2
         .services()
         .verificationChecks.create.mockResolvedValue({ valid: true });
-      repo.existsBy.mockResolvedValueOnce(true);
-      const mockQueryBuilder = {
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        returning: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({
-          affected: 1,
-          raw: [
-            {
-              id: fakeSmsValidation.id,
-              user_id: fakeSmsValidation.userId,
-              sms_service_sid: fakeSmsValidation.smsServiceSid,
-              sms_request_sid: fakeSmsValidation.smsRequestSid,
-              sms_action: fakeSmsValidation.smsAction,
-              sms_status: SmsValidationStatus.APPROVED,
-              status: Status.VALIDATED,
-              phone: fakeSmsValidation.phone,
-              sms_provider: fakeSmsValidation.smsProvider,
-              created_at: fakeSmsValidation.createdAt,
-              updated_at: new Date(),
-            },
-          ],
-        }),
-      };
-      repo.createQueryBuilder.mockReturnValue(mockQueryBuilder as any);
+      repo.exists.mockResolvedValueOnce(true);
+      repo.findOneAndUpdate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          id: fakeSmsValidation.id,
+          userId: fakeSmsValidation.userId,
+          smsServiceSid: fakeSmsValidation.smsServiceSid,
+          smsRequestSid: fakeSmsValidation.smsRequestSid,
+          smsAction: fakeSmsValidation.smsAction,
+          smsStatus: SmsValidationStatus.APPROVED,
+          status: Status.VALIDATED,
+          phone: fakeSmsValidation.phone,
+          smsProvider: fakeSmsValidation.smsProvider,
+          createdAt: fakeSmsValidation.createdAt,
+          updatedAt: new Date(),
+          _id: { toString: () => fakeSmsValidation.id },
+        } as unknown as SmsValidation),
+      } as any);
+
       const res = await service.validateSmsCode({
         id: fakeSmsValidation.id,
         code: '2222',
       });
       expect(res).toHaveProperty('id');
       expect(res.smsStatus).toBe(SmsValidationStatus.APPROVED);
-      expect(mockQueryBuilder.update).toHaveBeenCalled();
+      expect(repo.findOneAndUpdate).toHaveBeenCalled();
     });
 
     it('throws UnprocessableEntityException when twilio verification check not found message', async () => {
-      repo.findOne.mockResolvedValueOnce(fakeSmsValidation);
+      repo.findOne.mockReturnValueOnce({
+        sort: jest.fn().mockReturnValue({
+          exec: jest.fn().mockResolvedValue(fakeSmsValidation),
+        }),
+      } as any);
       twilioClient.verify.v2
         .services()
         .verificationChecks.create.mockRejectedValue(
@@ -286,7 +279,11 @@ describe('SmsValidationService', () => {
 
   describe('resendSmsCode', () => {
     it('throws NotFoundException when validation not found', async () => {
-      repo.findOne.mockResolvedValueOnce(null);
+      repo.findOne.mockReturnValueOnce({
+        sort: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue(null) }),
+      } as any);
       await expect(service.resendSmsCode({ id: 'no' })).rejects.toBeInstanceOf(
         NotFoundException,
       );
@@ -297,7 +294,11 @@ describe('SmsValidationService', () => {
         ...fakeSmsValidation,
         smsRequestDate: new Date(Date.now() - 1000 * 60 * 1),
       };
-      repo.findOne.mockResolvedValueOnce(recent);
+      repo.findOne.mockReturnValueOnce({
+        sort: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue(recent) }),
+      } as any);
       await expect(service.resendSmsCode({ id: 'u' })).rejects.toBeInstanceOf(
         UnprocessableEntityException,
       );
@@ -308,7 +309,11 @@ describe('SmsValidationService', () => {
         ...fakeSmsValidation,
         smsRequestDate: new Date(Date.now() - 1000 * 60 * 10),
       };
-      repo.findOne.mockResolvedValueOnce(old);
+      repo.findOne.mockReturnValueOnce({
+        sort: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue(old) }),
+      } as any);
       twilioClient.verify.v2
         .services()
         .verifications.create.mockRejectedValue(new Error('twilio error'));
@@ -322,22 +327,28 @@ describe('SmsValidationService', () => {
         ...fakeSmsValidation,
         smsRequestDate: new Date(Date.now() - 1000 * 60 * 10),
       };
-      repo.findOne.mockResolvedValueOnce(old);
+      repo.findOne.mockReturnValueOnce({
+        sort: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue(old) }),
+      } as any);
       twilioClient.verify.v2.services().verifications.create.mockResolvedValue({
         serviceSid: 'VSID',
         sid: 'SID456',
         dateCreated: new Date().toISOString(),
       });
-      repo.update.mockResolvedValue({
+      repo.findOneAndUpdate.mockResolvedValue({
         affected: 1,
         raw: [],
         generatedMaps: [],
       });
       await service.resendSmsCode({ id: 'u' });
-      expect(repo.update).toHaveBeenCalledWith(
-        { id: old.id },
+      expect(repo.updateOne).toHaveBeenCalledWith(
+        { _id: (old as unknown as { _id: string })._id },
         expect.objectContaining({
-          smsStatus: SmsValidationStatus.PENDING,
+          $set: expect.objectContaining({
+            smsStatus: SmsValidationStatus.PENDING,
+          }) as unknown,
         }),
       );
     });
@@ -345,55 +356,41 @@ describe('SmsValidationService', () => {
 
   describe('updateById', () => {
     it('throws NotFoundException when not exists', async () => {
-      repo.existsBy.mockResolvedValueOnce(false);
+      repo.exists.mockResolvedValueOnce(false);
       await expect(
         service.updateById('x', { updatedAt: new Date().toISOString() }),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('throws OutdatedEntityVersionError when affected is 0', async () => {
-      repo.existsBy.mockResolvedValueOnce(true);
-      const qb = {
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        returning: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 0, raw: [] }),
-      };
-      repo.createQueryBuilder.mockReturnValue(qb as any);
+      repo.exists.mockResolvedValueOnce(true);
+      repo.findOneAndUpdate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(null),
+      } as any);
       await expect(
         service.updateById('x', { updatedAt: new Date().toISOString() }),
       ).rejects.toBeInstanceOf(OutdatedEntityVersionError);
     });
 
     it('returns mapped entity on success', async () => {
-      repo.existsBy.mockResolvedValueOnce(true);
+      repo.exists.mockResolvedValueOnce(true);
       const now = new Date();
-      const qb = {
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        returning: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({
-          affected: 1,
-          raw: [
-            {
-              id: 'x',
-              user_id: 'u',
-              sms_service_sid: 'VS',
-              sms_request_sid: 'RQ',
-              sms_action: SmsValidationAction.CONFIRM_SIGN_UP,
-              sms_status: SmsValidationStatus.APPROVED,
-              status: Status.VALIDATED,
-              phone: '551',
-              sms_provider: SmsValidationProvider.TWILIO,
-              created_at: now,
-              updated_at: now,
-            },
-          ],
+      repo.findOneAndUpdate.mockReturnValue({
+        exec: jest.fn().mockResolvedValue({
+          id: 'x',
+          userId: 'u',
+          smsServiceSid: 'VS',
+          smsRequestSid: 'RQ',
+          smsAction: SmsValidationAction.CONFIRM_SIGN_UP,
+          smsStatus: SmsValidationStatus.APPROVED,
+          status: Status.VALIDATED,
+          phone: '551',
+          smsProvider: SmsValidationProvider.TWILIO,
+          createdAt: now,
+          updatedAt: now,
+          _id: { toString: () => 'x' },
         }),
-      };
-      repo.createQueryBuilder.mockReturnValue(qb as any);
+      } as any);
       const res = await service.updateById('x', {
         updatedAt: now.toISOString(),
         smsStatus: SmsValidationStatus.APPROVED,
@@ -405,7 +402,9 @@ describe('SmsValidationService', () => {
 
   describe('buildSmsValidationDto', () => {
     it('maps entity to dto', () => {
-      const dto = service.buildSmsValidationDto(fakeSmsValidation);
+      const dto = service.buildSmsValidationDto(
+        fakeSmsValidation as unknown as SmsValidationDocument,
+      );
       expect(dto).toHaveProperty('id', fakeSmsValidation.id);
       expect(dto.phone).toBe(fakeSmsValidation.phone);
     });

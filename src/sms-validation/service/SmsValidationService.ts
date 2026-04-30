@@ -11,9 +11,12 @@ import { ConfigService } from '@nestjs/config';
 import { EnvironmentVariables } from '../../config/EnvironmentVariables';
 import { Twilio } from 'twilio';
 import { SmsValidationDto } from '../dto/SmsValidationDto';
-import { SmsValidation } from '../entity/SmsValidation';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  SmsValidation,
+  SmsValidationDocument,
+} from '../schemas/SmsValidationSchema';
+import { InjectModel } from '@nestjs/mongoose';
+import mongoose from 'mongoose';
 import { SmsValidationProvider } from '../enum/SmsValidationProvider';
 import { SmsValidationStatus } from '../enum/SmsValidationStatus';
 import { SmsValidationAction } from '../enum/SmsValidationAction';
@@ -22,7 +25,6 @@ import { VerificationInstance } from 'twilio/lib/rest/verify/v2/service/verifica
 import { ConfirmSignUpPayloadDto } from '../dto/ConfirmSignUpPayloadDto';
 import { UpdateSmsValidationPayloadDto } from '../dto/UpdateSmsValidationPayloadDto';
 import { OutdatedEntityVersionError } from '../../shared/error/OutdatedEntityVersionError';
-import { SmsValidationInterface } from '../interfaces/SmsValidation';
 import { ResendSignUpCodePayloadDto } from '../dto/ResendSignUpCodePayloadDto';
 import { ValidateSmsRequestPayloadDto } from '../dto/ValidateSmsRequestPayloadDto';
 import { IsValidSmsCodeDto } from '../dto/IsValidSmCodeDto';
@@ -33,14 +35,13 @@ export class SmsValidationService {
   private readonly logger = new Logger(SmsValidationService.name);
 
   constructor(
-    @InjectRepository(SmsValidation)
-    private smsValidationRepository: Repository<SmsValidation>,
+    @InjectModel(SmsValidation.name)
+    private smsValidationModel: mongoose.Model<SmsValidationDocument>,
     private readonly configService: ConfigService<EnvironmentVariables>,
   ) {
     const accountSid = this.configService.get<string>('TWILIO_ACCOUNT_SID');
     const authToken = this.configService.get<string>('TWILIO_AUTH_TOKEN');
 
-    // Only initialize Twilio if valid credentials are provided
     if (accountSid && authToken && accountSid.startsWith('AC')) {
       this.twilioClient = new Twilio(accountSid, authToken);
     } else {
@@ -76,7 +77,7 @@ export class SmsValidationService {
       );
     }
 
-    const smsValidationEntity = this.smsValidationRepository.create({
+    const newSmsValidation = new this.smsValidationModel({
       userId: payload.userId,
       phone: payload.phone,
       status: Status.REGISTERED,
@@ -90,7 +91,8 @@ export class SmsValidationService {
       smsRequestDate: new Date(smsResponse.dateCreated),
     });
 
-    return this.smsValidationRepository.save(smsValidationEntity);
+    const saved = await newSmsValidation.save();
+    return this.buildSmsValidationDto(saved);
   }
 
   async validateSmsCode(
@@ -117,7 +119,9 @@ export class SmsValidationService {
       const updatedValidation = await this.updateById(validationData.id, {
         smsStatus: SmsValidationStatus.APPROVED,
         status: Status.VALIDATED,
-        updatedAt: validationData.updatedAt.toISOString(),
+        updatedAt: validationData.updatedAt
+          ? validationData.updatedAt.toISOString()
+          : new Date().toISOString(),
       });
       return this.buildSmsValidationDto(updatedValidation);
     } catch (err) {
@@ -143,7 +147,8 @@ export class SmsValidationService {
       payload.smsAction as SmsValidationAction,
     );
 
-    const diff = new Date().getTime() - validationData.smsRequestDate.getTime();
+    const diff =
+      new Date().getTime() - validationData.smsRequestDate!.getTime();
     const minutesDiff = diff / (1000 * 60);
 
     if (minutesDiff < 3) {
@@ -155,8 +160,8 @@ export class SmsValidationService {
     let smsResponse: VerificationInstance;
     try {
       smsResponse = await this.twilioClient.verify.v2
-        .services(validationData.smsServiceSid)
-        .verifications.create({ to: validationData.phone, channel: 'sms' });
+        .services(validationData.smsServiceSid!)
+        .verifications.create({ to: validationData.phone!, channel: 'sms' });
     } catch (err) {
       this.logger.error('Error creating verification in Twilio', err);
       throw new BadGatewayException(
@@ -164,15 +169,17 @@ export class SmsValidationService {
       );
     }
 
-    await this.smsValidationRepository.update(
-      {
-        id: validationData.id,
-      },
-      {
-        smsStatus: SmsValidationStatus.PENDING,
-        smsRequestDate: new Date(smsResponse.dateCreated),
-      },
-    );
+    await this.smsValidationModel
+      .updateOne(
+        { _id: validationData._id },
+        {
+          $set: {
+            smsStatus: SmsValidationStatus.PENDING,
+            smsRequestDate: new Date(smsResponse.dateCreated),
+          },
+        },
+      )
+      .exec();
   }
 
   async validateOnlySmsCode(
@@ -222,72 +229,53 @@ export class SmsValidationService {
     }
   }
 
-  /**
-   * Find SMS validation by user ID
-   * @param userId - external user id
-   * @returns
-   */
   async findByUserId(
     userId: string,
     smsAction?: SmsValidationAction,
-  ): Promise<SmsValidation> {
-    // find the latest SMS validation for the user
-    const smsValidation = await this.smsValidationRepository.findOne({
-      where: { userId: userId, smsAction },
-      order: { createdAt: 'DESC' },
-    });
+  ): Promise<SmsValidationDocument> {
+    const query: mongoose.QueryFilter<SmsValidation> = {
+      userId,
+      ...(smsAction ? { smsAction } : {}),
+    };
+
+    const smsValidation = await this.smsValidationModel
+      .findOne(query)
+      .sort({ createdAt: -1 })
+      .exec();
+
     if (!smsValidation) {
       throw new NotFoundException('SMS Validation not found');
     }
     return smsValidation;
   }
 
-  /**
-   * Update SMS validation by ID
-   * @param id - SMS validation ID
-   * @param payload - update payload
-   * @returns
-   */
   async updateById(
     id: string,
     payload: UpdateSmsValidationPayloadDto,
-  ): Promise<SmsValidation> {
+  ): Promise<SmsValidationDocument> {
     const { updatedAt, ...data } = payload;
-    const exists = await this.smsValidationRepository.existsBy({ id });
+    const exists = await this.smsValidationModel.exists({ _id: id });
 
     if (!exists) {
       throw new NotFoundException('SMS Validation not found');
     }
 
-    // Cast smsProvider to SmsValidationProvider if present
     const updateData: Partial<SmsValidation> = {
       ...data,
-      smsAction:
-        data.smsAction !== undefined
-          ? (data.smsAction as SmsValidationAction)
-          : undefined,
-      smsStatus:
-        data.smsStatus !== undefined
-          ? (data.smsStatus as SmsValidationStatus)
-          : undefined,
-      smsProvider:
-        data.smsProvider !== undefined
-          ? (data.smsProvider as SmsValidationProvider)
-          : undefined,
+      smsAction: data.smsAction,
+      smsStatus: data.smsStatus,
+      smsProvider: data.smsProvider,
     };
 
-    const result = await this.smsValidationRepository
-      .createQueryBuilder()
-      .update()
-      .set(updateData)
-      .where(
-        'id = :id AND updated_at::timestamp(2) = :updatedAt::timestamp(2)',
-        { id, updatedAt },
+    const updated = await this.smsValidationModel
+      .findOneAndUpdate(
+        { _id: id, updatedAt: new Date(updatedAt) },
+        { $set: updateData },
+        { new: true },
       )
-      .returning('*')
-      .execute();
+      .exec();
 
-    if (result.affected === 0) {
+    if (!updated) {
       throw new OutdatedEntityVersionError(
         'an old version of SMS Validation was detected during the update',
         'SmsValidation',
@@ -295,31 +283,16 @@ export class SmsValidationService {
       );
     }
 
-    const rows = result.raw as SmsValidationInterface[];
-    const row = rows[0];
-
-    const entity = new SmsValidation();
-    entity.id = row.id || '';
-    entity.userId = row.user_id || '';
-    entity.smsServiceSid = row.sms_service_sid || '';
-    entity.smsRequestSid = row.sms_request_sid || '';
-    entity.smsAction = row.sms_action || '';
-    entity.smsStatus = row.sms_status || '';
-    entity.status = row.status || '';
-    entity.phone = row.phone ?? '';
-    entity.smsProvider = row.sms_provider as SmsValidationProvider;
-    entity.createdAt = row.created_at;
-    entity.updatedAt = row.updated_at;
-    return entity;
+    return updated;
   }
 
-  buildSmsValidationDto(entity: SmsValidation): SmsValidationDto {
+  buildSmsValidationDto(entity: SmsValidationDocument): SmsValidationDto {
     return {
-      id: entity.id,
+      id: entity._id.toString(),
       userId: entity.userId,
-      phone: entity.phone,
+      phone: entity.phone!,
       status: entity.status,
-      smsProvider: entity.smsProvider,
+      smsProvider: entity.smsProvider!,
       smsAction: entity.smsAction,
       smsServiceSid: entity.smsServiceSid,
       smsRequestSid: entity.smsRequestSid,

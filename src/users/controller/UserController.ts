@@ -26,7 +26,7 @@ import { ApiPaginationResponse } from '../../shared/decorator/ApiPaginationResul
 import { UserDto } from '../dto/UserDto';
 import { FilterUsersQueryDto } from '../dto/FilterUsersQueryDto';
 import { PaginationResultDto } from '../../shared/dto/PaginationResultDto';
-import { User } from '../entity/User';
+import { User } from '../schemas/UserSchema';
 import { CreateUserPayloadDto } from '../dto/CreateUserPayloadDto';
 import { UpdateUserPayloadDto } from '../dto/UpdateUserPayloadDto';
 

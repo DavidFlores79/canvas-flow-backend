@@ -10,7 +10,7 @@ import { SignInUserPayloadDto } from '../dto/SignInUserPayloadDto';
 import { UserSessionDto } from '../dto/UserSessionDto';
 import { Gender, Group, Status } from '../../users/enum/UserEnum';
 import { JwtService } from '@nestjs/jwt';
-import { User } from '../../users/entity/User';
+import { User } from '../../users/schemas/UserSchema';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { ConfigService } from '@nestjs/config';
@@ -38,7 +38,6 @@ import { ResendSignUpCodePayloadDto } from '../../sms-validation/dto/ResendSignU
 import { CompleteRecoverPasswordPayloadDto } from '../dto/CompleteRecoverPasswordPayloadDto';
 import { IsValidSmsCodeDto } from '../../sms-validation/dto/IsValidSmCodeDto';
 import { ValidateSmsRequestPayloadDto } from '../../sms-validation/dto/ValidateSmsRequestPayloadDto';
-import { DataSource } from 'typeorm';
 
 @Injectable()
 export class AuthService {
@@ -51,7 +50,6 @@ export class AuthService {
     private smsValidationService: SmsValidationService,
     private readonly configService: ConfigService<EnvironmentVariables>,
     private readonly jwtService: JwtService,
-    private readonly dataSource: DataSource,
   ) {}
 
   async signIn(
@@ -71,6 +69,9 @@ export class AuthService {
     }
 
     if (password) {
+      if (!user.password) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
       const isValid = await bcrypt.compare(password, user.password);
       if (!isValid) {
         this.logger.warn('Sign-in failed: Invalid password', {
@@ -167,9 +168,6 @@ export class AuthService {
   async confirmSignUp(
     confirmSignUpPayloadDto: ConfirmSignUpPayloadDto,
   ): Promise<UserDto> {
-    // now
-    const now = new Date();
-
     this.logger.debug('Confirm sign-up attempt', {
       id: confirmSignUpPayloadDto.id,
     });
@@ -187,12 +185,10 @@ export class AuthService {
     }
 
     // Update user with verified status
-    await this.dataSource.transaction(async (entityManager) => {
-      await entityManager.update(User, userData.id, {
-        verified: true,
-        status: Status.VALIDATED,
-        updatedAt: now,
-      });
+    await this.userService.updateById(userData.id, {
+      verified: true,
+      status: Status.VALIDATED,
+      updatedAt: userData.updatedAt.toISOString(),
     });
 
     // Get the updated user data
@@ -422,6 +418,9 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
+    if (!user.password) {
+      throw new UnauthorizedException();
+    }
     const isValid = bcrypt.compareSync(
       validateUserPasswordPayloadDto.password,
       user.password,
