@@ -14,19 +14,19 @@ Canvas Flow is a Canva-like platform that combines deterministic media processin
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | NestJS (TypeScript) |
-| Primary DB | PostgreSQL (TypeORM) |
-| Document DB | MongoDB (Mongoose) — legacy/aux |
-| Cache / Queues | Redis + BullMQ |
-| Media Engine | Cloudinary |
-| Generative AI | Leonardo AI |
-| Auth | JWT (access + refresh tokens) |
-| SMS OTP | Twilio Verify |
-| Error Tracking | Sentry |
-| API Docs | Swagger / OpenAPI |
-| Backup Storage | AWS S3 (optional) |
+| Layer          | Technology                      |
+| -------------- | ------------------------------- |
+| Framework      | NestJS (TypeScript)             |
+| Primary DB     | PostgreSQL (TypeORM)            |
+| Document DB    | MongoDB (Mongoose) — legacy/aux |
+| Cache / Queues | Redis + BullMQ                  |
+| Media Engine   | Cloudinary                      |
+| Generative AI  | Leonardo AI                     |
+| Auth           | JWT (access + refresh tokens)   |
+| SMS OTP        | Twilio Verify                   |
+| Error Tracking | Sentry                          |
+| API Docs       | Swagger / OpenAPI               |
+| Backup Storage | AWS S3 (optional)               |
 
 ---
 
@@ -134,15 +134,15 @@ src/
 
 ## Documentation
 
-| Document | Description |
-|---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture, data flow, deployment |
-| [docs/BACKEND_MODULES.md](docs/BACKEND_MODULES.md) | All NestJS modules and their responsibilities |
-| [docs/FRONTEND.md](docs/FRONTEND.md) | Angular 20 frontend architecture and components |
-| [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) | Cloudinary and Leonardo AI integration details |
-| [docs/FEATURES.md](docs/FEATURES.md) | Feature list and progressive rollout roadmap |
-| [docs/DATABASE.md](docs/DATABASE.md) | Database schema, caching strategy, queue setup |
-| [docs/API.md](docs/API.md) | API design, authentication, rate limiting |
+| Document                                           | Description                                     |
+| -------------------------------------------------- | ----------------------------------------------- |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)       | System architecture, data flow, deployment      |
+| [docs/BACKEND_MODULES.md](docs/BACKEND_MODULES.md) | All NestJS modules and their responsibilities   |
+| [docs/FRONTEND.md](docs/FRONTEND.md)               | Angular 20 frontend architecture and components |
+| [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)       | Cloudinary and Leonardo AI integration details  |
+| [docs/FEATURES.md](docs/FEATURES.md)               | Feature list and progressive rollout roadmap    |
+| [docs/DATABASE.md](docs/DATABASE.md)               | Database schema, caching strategy, queue setup  |
+| [docs/API.md](docs/API.md)                         | API design, authentication, rate limiting       |
 
 ---
 
@@ -150,27 +150,27 @@ src/
 
 All env files live in `environment/`. Set `DEPLOY_ENV` to load the appropriate file.
 
-| Variable | Description |
-|---|---|
-| `DEPLOY_ENV` | `local` · `development` · `sandbox` · `production` |
-| `DATABASE_URL` | PostgreSQL connection URI |
-| `MONGODB` | MongoDB connection URI (aux) |
-| `REDIS_URL` | Redis connection URI |
-| `JWT_SECRET` | JWT signing secret |
-| `JWT_EXPIRY` | Access token expiry (e.g. `15m`) |
-| `JWT_REFRESH_EXPIRY` | Refresh token expiry (e.g. `7d`) |
-| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name |
-| `CLOUDINARY_API_KEY` | Cloudinary API key |
-| `CLOUDINARY_API_SECRET` | Cloudinary API secret |
-| `LEONARDO_API_KEY` | Leonardo AI API key |
-| `TWILIO_ACCOUNT_SID` | Twilio account SID |
-| `TWILIO_AUTH_TOKEN` | Twilio auth token |
-| `TWILIO_VERIFY_SID` | Twilio Verify service SID |
-| `AWS_S3_BUCKET` | S3 bucket name (optional backup storage) |
-| `AWS_ACCESS_KEY_ID` | AWS access key (optional) |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret key (optional) |
-| `SENTRY_DSN` | Sentry DSN for error tracking |
-| `SALT_ROUND` | bcrypt salt rounds |
+| Variable                | Description                                        |
+| ----------------------- | -------------------------------------------------- |
+| `DEPLOY_ENV`            | `local` · `development` · `sandbox` · `production` |
+| `DATABASE_URL`          | PostgreSQL connection URI                          |
+| `MONGODB`               | MongoDB connection URI (aux)                       |
+| `REDIS_URL`             | Redis connection URI                               |
+| `JWT_SECRET`            | JWT signing secret                                 |
+| `JWT_EXPIRY`            | Access token expiry (e.g. `15m`)                   |
+| `JWT_REFRESH_EXPIRY`    | Refresh token expiry (e.g. `7d`)                   |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name                              |
+| `CLOUDINARY_API_KEY`    | Cloudinary API key                                 |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret                              |
+| `LEONARDO_API_KEY`      | Leonardo AI API key                                |
+| `TWILIO_ACCOUNT_SID`    | Twilio account SID                                 |
+| `TWILIO_AUTH_TOKEN`     | Twilio auth token                                  |
+| `TWILIO_VERIFY_SID`     | Twilio Verify service SID                          |
+| `AWS_S3_BUCKET`         | S3 bucket name (optional backup storage)           |
+| `AWS_ACCESS_KEY_ID`     | AWS access key (optional)                          |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key (optional)                          |
+| `SENTRY_DSN`            | Sentry DSN for error tracking                      |
+| `SALT_ROUND`            | bcrypt salt rounds                                 |
 
 ---
 
@@ -199,6 +199,7 @@ src/[module-name]/
 ```
 
 **Conventions:**
+
 - UUID primary keys on all entities
 - snake_case column names mapped to camelCase properties
 - All DTOs validated with `class-validator`
