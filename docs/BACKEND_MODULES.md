@@ -7,14 +7,18 @@ All NestJS modules follow the **Controller → Service → Repository** pattern 
 ## Core & Infrastructure Modules
 
 ### `CoreModule`
+
 Health checks and system information endpoints.
+
 - `GET /health` — liveness + readiness probes
 - `GET /info` — app version, environment
 
 ### `DatabaseModule`
+
 Configures TypeORM (PostgreSQL) and Mongoose (MongoDB aux). Loaded once at app root.
 
 ### `AuthModule`
+
 JWT-based authentication for the platform.
 
 **Endpoints:**
@@ -30,6 +34,7 @@ JWT-based authentication for the platform.
 **Key DTOs:** `SignUpPayloadDto`, `SignInUserPayloadDto`, `RefreshTokenPayloadDto`, `RecoverPasswordPayloadDto`, `CompleteRecoverPasswordPayloadDto`
 
 ### `SmsValidationModule`
+
 SMS OTP via Twilio Verify for phone number confirmation and 2FA.
 
 **Endpoints:**
@@ -44,6 +49,7 @@ SMS OTP via Twilio Verify for phone number confirmation and 2FA.
 ## User & Organization Modules
 
 ### `UsersModule`
+
 User profile management, preferences, and account settings.
 
 **Endpoints:**
@@ -58,6 +64,7 @@ User profile management, preferences, and account settings.
 **Entity fields:** `id`, `email`, `phone`, `firstName`, `lastName`, `avatarUrl`, `role`, `isEmailVerified`, `isPhoneVerified`, `createdAt`, `updatedAt`
 
 ### `OrganizationsModule`
+
 Multi-tenant organization management. Each org is a billing and permission boundary.
 
 **Endpoints:**
@@ -74,6 +81,7 @@ Multi-tenant organization management. Each org is a billing and permission bound
 **Entity fields:** `id`, `name`, `slug`, `logoUrl`, `planId`, `ownerId`, `settings (JSONB)`, `createdAt`
 
 ### `WorkspacesModule`
+
 Scoped environments within an organization. Teams operate inside workspaces.
 
 **Endpoints:**
@@ -94,6 +102,7 @@ Scoped environments within an organization. Teams operate inside workspaces.
 ## Project & Asset Modules
 
 ### `ProjectsModule`
+
 Media editing projects containing assets, layers, and history.
 
 **Endpoints:**
@@ -111,6 +120,7 @@ Media editing projects containing assets, layers, and history.
 **Entity fields:** `id`, `name`, `workspaceId`, `organizationId`, `canvasConfig (JSONB)`, `thumbnailUrl`, `status`, `tags`, `createdBy`, `createdAt`, `updatedAt`
 
 ### `AssetsModule`
+
 Full asset lifecycle management including versioning, metadata, and delivery.
 
 **Endpoints:**
@@ -130,6 +140,7 @@ Full asset lifecycle management including versioning, metadata, and delivery.
 **Entity fields:** `id`, `name`, `cloudinaryPublicId`, `cloudinaryUrl`, `format`, `width`, `height`, `size`, `type` (image/video/document/audio), `folderId`, `projectId`, `organizationId`, `tags`, `metadata (JSONB)`, `versions`, `isArchived`
 
 ### `FoldersModule`
+
 Hierarchical folder structure for asset organization.
 
 **Endpoints:**
@@ -146,9 +157,11 @@ Hierarchical folder structure for asset organization.
 ## Editor Modules
 
 ### `EditorSessionsModule`
+
 Real-time editor session state management. Each open editor tab creates a session.
 
 **Responsibilities:**
+
 - Track active editor sessions per project
 - Persist canvas state snapshots
 - Manage auto-save intervals
@@ -156,9 +169,11 @@ Real-time editor session state management. Each open editor tab creates a sessio
 - WebSocket gateway for live state sync
 
 ### `LayersModule`
+
 Layer composition engine managing stacking order, transforms, and blending.
 
 **Layer Types:**
+
 - `image` — raster image asset
 - `video` — video clip
 - `text` — text with font/style
@@ -171,6 +186,7 @@ Layer composition engine managing stacking order, transforms, and blending.
 **Entity fields:** `id`, `sessionId`, `projectId`, `type`, `order`, `isVisible`, `isLocked`, `transform (JSONB)`, `style (JSONB)`, `blendMode`, `opacity`, `effects (JSONB)`, `assetId`
 
 ### `TemplatesModule`
+
 Reusable design templates for social media, business documents, marketing materials.
 
 **Endpoints:**
@@ -188,15 +204,18 @@ Reusable design templates for social media, business documents, marketing materi
 ## Integration Modules
 
 ### `CloudinaryModule`
+
 Core Cloudinary integration — all media I/O flows through this module.
 
 **Services:**
+
 - `CloudinaryUploadService` — signed upload URL generation, direct upload
 - `CloudinaryTransformService` — build transformation URLs, eager transforms
 - `CloudinaryDeliveryService` — optimized delivery URLs, responsive images
 - `CloudinaryWebhookService` — process incoming Cloudinary notification webhooks
 
 **Key operations:**
+
 - Generate time-limited signed upload parameters
 - Apply chained transformation pipelines (crop, resize, rotate, effects, overlays, watermarks)
 - OCR extraction via Cloudinary AI
@@ -209,15 +228,18 @@ Core Cloudinary integration — all media I/O flows through this module.
 - Responsive image srcset generation
 
 ### `LeonardoModule`
+
 Leonardo AI integration for generative workflows.
 
 **Services:**
+
 - `LeonardoGenerationService` — text-to-image, image-to-image, style transfer
 - `LeonardoEditService` — inpainting, outpainting, generative fill, object replacement
 - `LeonardoEnhancementService` — upscale, denoise, restore
 - `LeonardoWebhookService` — process generation complete webhooks
 
 **Key operations:**
+
 - Text-to-image generation with prompt control
 - Image-to-image transformations
 - Inpainting (fill selected regions)
@@ -235,9 +257,11 @@ Leonardo AI integration for generative workflows.
 ## Pipeline Modules
 
 ### `TransformationsModule`
+
 Define, store, and apply reusable transformation presets.
 
 **Transformation types:**
+
 - Crop (smart, face-detect, custom)
 - Resize (contain, cover, fill, pad)
 - Rotate / Flip
@@ -255,9 +279,11 @@ Define, store, and apply reusable transformation presets.
 - Drop shadow / glow
 
 ### `OcrPipelinesModule`
+
 Document scanning and OCR extraction workflows.
 
 **Pipeline stages:**
+
 1. Receive source image (upload or existing asset)
 2. Edge detection (Cloudinary AI)
 3. Perspective correction / deskew
@@ -272,9 +298,11 @@ Document scanning and OCR extraction workflows.
 | GET | `/ocr-pipelines/:id` | Get pipeline status and result |
 
 ### `AiPipelinesModule`
+
 AI orchestration layer for multi-step generative and enhancement workflows.
 
 **Pipeline types:**
+
 - `background-removal` — Cloudinary AI background removal
 - `background-replace` — remove + regenerate with Leonardo
 - `smart-enhance` — auto brightness/contrast + AI upscale
@@ -288,6 +316,7 @@ AI orchestration layer for multi-step generative and enhancement workflows.
 **Credit costs** are deducted per pipeline type before execution.
 
 ### `ExportPipelinesModule`
+
 Orchestrate final rendering and delivery of completed designs.
 
 **Export formats:**
@@ -306,9 +335,11 @@ Orchestrate final rendering and delivery of completed designs.
 ## Async & Event Modules
 
 ### `JobsModule`
+
 BullMQ job definitions and processors. All heavy async work runs here.
 
 **Queues:**
+
 - `asset-processing` — metadata extraction, auto-tag, moderate, thumbnail, S3 backup
 - `ai-generation` — all Leonardo AI job processing
 - `export` — canvas render, transformation application, format conversion
@@ -316,6 +347,7 @@ BullMQ job definitions and processors. All heavy async work runs here.
 - `notifications` — email, push, in-app notification dispatch
 
 ### `WebhooksModule`
+
 Inbound webhook listeners for external service callbacks.
 
 **Endpoints:**
@@ -328,6 +360,7 @@ Inbound webhook listeners for external service callbacks.
 All webhooks validate HMAC signatures before processing.
 
 ### `NotificationsModule`
+
 In-app and push notification delivery.
 
 **Notification types:** asset-ready, export-complete, ai-generation-complete, credits-low, member-invited, comment-added, project-shared
@@ -337,6 +370,7 @@ In-app and push notification delivery.
 ## Billing & Usage Modules
 
 ### `BillingModule`
+
 Payment processing integration (Stripe or equivalent).
 
 **Endpoints:**
@@ -348,6 +382,7 @@ Payment processing integration (Stripe or equivalent).
 | POST | `/billing/portal` | Customer billing portal URL |
 
 ### `SubscriptionsModule`
+
 Subscription plan management tied to organizations.
 
 **Plans:** Free, Starter, Pro, Business, Enterprise
@@ -355,6 +390,7 @@ Subscription plan management tied to organizations.
 **Plan limits:** credits/month, storage GB, team members, export formats, API calls/day
 
 ### `CreditsModule`
+
 Credit-based metering for AI feature usage.
 
 **Endpoints:**
@@ -366,27 +402,29 @@ Credit-based metering for AI feature usage.
 
 **Credit costs per operation:**
 
-| Operation | Credits |
-|---|---|
-| Text-to-image (standard) | 5 |
-| Text-to-image (HD) | 10 |
-| Image-to-image | 5 |
-| Inpainting | 8 |
-| Outpainting | 10 |
-| Background removal | 2 |
-| Background generation | 8 |
-| AI upscale | 3 |
-| Style transfer | 6 |
-| Creative variation | 4 |
+| Operation                | Credits |
+| ------------------------ | ------- |
+| Text-to-image (standard) | 5       |
+| Text-to-image (HD)       | 10      |
+| Image-to-image           | 5       |
+| Inpainting               | 8       |
+| Outpainting              | 10      |
+| Background removal       | 2       |
+| Background generation    | 8       |
+| AI upscale               | 3       |
+| Style transfer           | 6       |
+| Creative variation       | 4       |
 
 ---
 
 ## Observability & Admin Modules
 
 ### `AnalyticsModule`
+
 Platform usage analytics and reporting.
 
 **Metrics tracked:**
+
 - Assets uploaded / processed per org
 - AI generations per user/org
 - Credits consumed
@@ -395,11 +433,13 @@ Platform usage analytics and reporting.
 - Active users, sessions
 
 ### `ActivityLogsModule`
+
 Immutable audit log for all significant actions.
 
 **Logged events:** asset upload, asset delete, AI generation, export, member invite, permission change, billing event, login, password change.
 
 ### `AdminModule`
+
 Admin-only management endpoints.
 
 **Endpoints:**

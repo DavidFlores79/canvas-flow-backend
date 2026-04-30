@@ -34,6 +34,7 @@ PostgreSQL      Redis         BullMQ         External APIs
 ## Data Flow
 
 ### Secure Upload Flow
+
 ```
 Client → POST /assets/upload-url
        ← Signed Cloudinary upload URL (short-lived)
@@ -47,6 +48,7 @@ Client  ← asset ready notification (WebSocket / polling)
 ```
 
 ### AI Generation Flow (Leonardo AI)
+
 ```
 Client → POST /ai-pipelines/generate
 Backend → validate credits → deduct credits
@@ -60,6 +62,7 @@ Client  ← asset ready (WebSocket)
 ```
 
 ### Export Flow
+
 ```
 Client → POST /export-pipelines
 Backend → enqueue export job → BullMQ
@@ -145,15 +148,15 @@ Queue: notifications
 
 ## Caching Strategy (Redis)
 
-| Cache Key Pattern | TTL | Purpose |
-|---|---|---|
-| `user:{id}:session` | 15 min | JWT session data |
-| `asset:{id}:metadata` | 1 hr | Asset metadata |
-| `template:{id}` | 24 hr | Template definitions |
-| `org:{id}:settings` | 1 hr | Org config |
-| `workspace:{id}:members` | 30 min | Member list |
-| `credits:{userId}` | 5 min | Available credits |
-| `rate-limit:{ip}:{endpoint}` | 1 min | Rate limit counters |
+| Cache Key Pattern            | TTL    | Purpose                |
+| ---------------------------- | ------ | ---------------------- |
+| `user:{id}:session`          | 15 min | JWT session data       |
+| `asset:{id}:metadata`        | 1 hr   | Asset metadata         |
+| `template:{id}`              | 24 hr  | Template definitions   |
+| `org:{id}:settings`          | 1 hr   | Org config             |
+| `workspace:{id}:members`     | 30 min | Member list            |
+| `credits:{userId}`           | 5 min  | Available credits      |
+| `rate-limit:{ip}:{endpoint}` | 1 min  | Rate limit counters    |
 | `cloudinary:signed-url:{id}` | 10 min | Pre-signed upload URLs |
 
 ---
@@ -207,6 +210,7 @@ interface GenerativeAIProvider {
 ```
 
 Current implementations:
+
 - `CloudinaryMediaEngine` → `MediaEngineProvider`
 - `LeonardoAIEngine` → `GenerativeAIProvider`
 
@@ -217,15 +221,17 @@ Future providers: OpenAI DALL-E, Stability AI, Replicate, custom ML pipelines.
 ## Deployment
 
 ### Docker Compose (Development)
+
 ```yaml
 services:
-  api:       # NestJS backend
-  postgres:  # PostgreSQL 16
-  redis:     # Redis 7
-  mongo:     # MongoDB (aux)
+  api: # NestJS backend
+  postgres: # PostgreSQL 16
+  redis: # Redis 7
+  mongo: # MongoDB (aux)
 ```
 
 ### Production (Recommended)
+
 - **API**: Containerized NestJS on AWS ECS / Azure Container Apps / Railway
 - **Database**: AWS RDS PostgreSQL / Azure Database for PostgreSQL
 - **Cache**: AWS ElastiCache Redis / Azure Cache for Redis
