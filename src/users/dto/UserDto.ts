@@ -12,7 +12,7 @@ import {
 } from 'class-validator';
 import { AddressDto } from './AddressDto';
 import { Gender, Group } from '../enum/UserEnum';
-import { User } from '../entity/User';
+import { User } from '../schemas/UserSchema';
 
 export class UserDto {
   @ApiProperty({

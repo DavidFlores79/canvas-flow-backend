@@ -4,7 +4,7 @@ import { INestApplication } from '@nestjs/common';
 
 import { UserController } from './UserController';
 import { UserService } from '../service/UserService';
-import { User } from '../entity/User';
+import { User } from '../schemas/UserSchema';
 import { UserDto } from '../dto/UserDto';
 import { PaginationResultDto } from '../../shared/dto/PaginationResultDto';
 import { NotFoundEntityError } from '../../shared/error/NotFoundEntityError';

@@ -1,184 +1,119 @@
-## Description
+# canvas-flow-backend
 
-Base project API
+NestJS REST API backed by **MongoDB** (Mongoose).
 
 ## Project Setup
 
-### Option 1: Using Docker (Recommended)
-
-```bash
-# Start all services (API + PostgreSQL)
-$ docker-compose up -d
-
-# View logs
-$ docker-compose logs -f
-
-# Stop services
-$ docker-compose down
-```
-
-The API will be available at `http://localhost:3000`
-
-### Option 2: Local Development
-
-**Prerequisites:**
+### Prerequisites
 
 - Node.js v22.x or higher
-- PostgreSQL 16
 - Yarn package manager
+- A MongoDB Atlas cluster (or local MongoDB instance)
+
+### Local Development
 
 ```bash
 # Install dependencies
 $ yarn install
 
-# Make sure PostgreSQL is running locally
-$ docker run -d -p 5432:5432 --name base-project-db \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=base-project-service \
-  postgres:16
+# Configure environment — edit environment/local.env and set:
+# MONGODB=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<db>?retryWrites=true&w=majority
 
-# Set environment variable (Windows PowerShell)
-$ $env:DEPLOY_ENV="local"
-
-# Set environment variable (Linux/Mac)
-$ export DEPLOY_ENV=local
-
-# Run migrations
-$ yarn db:migrate
-
-# Start the application in watch mode
-$ yarn run start:dev
+# Start in watch mode (DEPLOY_ENV is set automatically)
+$ yarn start:dev
 ```
 
-## Compile and Run the Project
+The API will be available at `http://localhost:3000`.
 
-### Using Docker
+## Compile and Run
 
 ```bash
-# Build and start all services
-$ docker-compose up -d
+# development watch mode
+$ yarn start:dev
 
-# Restart API after code changes
-$ docker-compose restart base-project-nest
-
-# View API logs
-$ docker-compose logs -f base-project-nest
-
-# Build production Docker image
-$ docker build -t base-project-nest .
+# production
+$ yarn start:prod
 ```
 
-### Local Development
+## Run Tests
 
 ```bash
-# development mode
-$ yarn run start
-
-# watch mode (hot reload)
-$ yarn run start:dev
-
-# production mode
-$ yarn run start:prod
-```
-
-## Run tests
-
-```bash
-
 # unit tests
-
-$  yarn  run  test
-
+$ yarn test
 
 # test coverage
-
-$  yarn  run  test:cov
-
+$ yarn test:cov
 ```
 
-## Deployment
+## Project Structure
+
+```
+src/
+├── AppModule.ts
+├── main.ts
+├── config/               # Environment variable types
+├── database/             # DatabaseModule (MongooseModule config)
+├── core/                 # Health-check & info endpoints
+├── auth/                 # Authentication (sign-up, sign-in, JWT, recover password)
+├── users/                # User CRUD
+│   ├── controller/
+│   ├── service/
+│   ├── schemas/          # Mongoose schemas (UserSchema.ts, AddressSchema.ts)
+│   ├── dto/
+│   └── UserModule.ts
+└── sms-validation/       # SMS OTP via Twilio
+    ├── controller/
+    ├── service/
+    ├── schemas/          # SmsValidationSchema.ts
+    ├── dto/
+    └── SmsValidationModule.ts
+```
 
 ### Adding a New Module
 
-To add a new business module, follow the pattern established in existing modules (`users`, `auth`, `sms-validation`). Here's an example folder structure:
+Follow the pattern of existing modules. Each module folder contains:
 
-    base_project/
-    ├── package.json
-    ├── tsconfig.json
-    ├── src/
-    │   ├── main.ts
-    │   ├── AppModule.ts
-    │   ├── users/        # Reference implementation
-    │   ├── auth/         # Reference implementation
-    │   ├── sms-validation/  # Reference implementation
-    │   └── [your-module]/   # Your new module
-    │       ├── controller/
-    │       │   ├── [Module]Controller.ts
-    │       │   └── [Module]Controller.spec.ts
-    │       ├── service/
-    │       │   ├── [Module]Service.ts
-    │       │   └── [Module]Service.spec.ts
-    │       ├── entity/
-    │       │   └── [Entity].ts
-    │       ├── dto/
-    │       ├── interface/
-    │       └── [Module]Module.ts
-
-**Important notes:**
-
-- All folders should be in **English** and **singular** form
-- The `entity/[Entity].ts` file defines the database schema
-- TypeORM uses entities to generate database migrations automatically
-
-### Generate and Run Database Migrations
-
-#### Using Docker (Recommended)
-
-This project uses Docker for database operations to ensure consistency across environments:
-
-```bash
-# 1. Generate migration (creates migration file from entity changes)
-$ docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn migration:generate"
-
-# 2. Run migration (applies changes to database)
-$ docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn db:migrate"
-
-# 3. Revert last migration (if needed)
-$ docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn migration:revert"
+```
+[your-module]/
+├── controller/
+│   ├── [Module]Controller.ts
+│   └── [Module]Controller.spec.ts
+├── service/
+│   ├── [Module]Service.ts
+│   └── [Module]Service.spec.ts
+├── schemas/
+│   └── [Entity]Schema.ts        # Mongoose @Schema class
+├── dto/
+└── [Module]Module.ts
 ```
 
-#### Local Development (Without Docker)
+**Conventions:**
 
-If you're running the project locally without Docker:
+- Folder names: **English**, **singular**, kebab-case
+- Schema files: `[Entity]Schema.ts` (e.g. `UserSchema.ts`)
+- Schema constant exported at bottom: `export { UserSchema }`
+- Document type: `export type UserDocument = HydratedDocument<User>`
 
-```bash
-# Windows PowerShell
-$ $env:DEPLOY_ENV="local"
-$ yarn migration:generate
-$ yarn db:migrate
+## Environment Variables
 
-# Linux/Mac
-$ export DEPLOY_ENV=local
-$ yarn migration:generate
-$ yarn db:migrate
+All env files live in `environment/`. The active file is selected by `DEPLOY_ENV`:
 
-# Or set inline (Linux/Mac)
-$ DEPLOY_ENV=local yarn migration:generate
-$ DEPLOY_ENV=local yarn db:migrate
-```
+| Variable | Description |
+|---|---|
+| `MONGODB` | Full MongoDB connection URI |
+| `JWT_SECRET` | JWT signing secret |
+| `JWT_EXPIRY` | Token expiry (e.g. `30m`) |
+| `JWT_ISSUER` | JWT issuer string |
+| `JWT_PRIVATE_KEY` | JWT private key |
+| `TWILIO_ACCOUNT_SID` | Twilio account SID (SMS) |
+| `TWILIO_AUTH_TOKEN` | Twilio auth token (SMS) |
+| `TWILIO_VERIFY_SID` | Twilio Verify service SID |
+| `SALT_ROUND` | bcrypt salt rounds |
 
-**Important Notes:**
-
-- Always set `DEPLOY_ENV` environment variable (local, development, production, sandbox)
-- Migrations are generated automatically from your TypeORM entities
-- The migration files are created in `src/database/migrations/`
-- Build is automatically included in the migration:generate command
-- Docker method is preferred to avoid cross-platform command issues
+> `DEPLOY_ENV` is automatically set to `local` by the `start` / `start:dev` npm scripts.
 
 ## Resources
 
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [TypeORM Documentation](https://docs.nestjs.com) to learn more about the ORM.
-
-- Visit [NestJS Database Documentation](https://docs.nestjs.com/techniques/database) to learn more about how NestJS works with database integration.
+- [NestJS Documentation](https://docs.nestjs.com)
+- [Mongoose Documentation](https://mongoosejs.com/docs/)
+- [NestJS + Mongoose](https://docs.nestjs.com/techniques/mongodb)

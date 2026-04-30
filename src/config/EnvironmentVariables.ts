@@ -1,7 +1,7 @@
 export interface EnvironmentVariables {
   PORT: number;
   DEPLOY_ENV: string;
-  DATABASE_URL: string;
+  MONGODB: string;
   JWT_SECRET: string;
   JWT_EXPIRY: string;
   JWT_ISSUER: string;

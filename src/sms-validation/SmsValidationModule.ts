@@ -1,13 +1,20 @@
 import { Module } from '@nestjs/common';
 import { SmsValidationService } from './service/SmsValidationService';
 import { ConfigService } from '@nestjs/config';
-import { SmsValidation } from './entity/SmsValidation';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import {
+  SmsValidation,
+  SmsValidationSchema,
+} from './schemas/SmsValidationSchema';
+import { MongooseModule } from '@nestjs/mongoose';
 
 @Module({
   controllers: [],
   providers: [SmsValidationService, ConfigService],
-  imports: [TypeOrmModule.forFeature([SmsValidation])],
+  imports: [
+    MongooseModule.forFeature([
+      { name: SmsValidation.name, schema: SmsValidationSchema },
+    ]),
+  ],
   exports: [SmsValidationService],
 })
 export class SmsValidationModule {}

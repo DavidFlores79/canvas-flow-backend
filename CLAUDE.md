@@ -11,7 +11,7 @@ This is a **base NestJS project template** designed to serve as a foundation for
 ### Tech Stack
 - **Framework**: NestJS with TypeScript
 - **Architecture**: Modular NestJS with layered structure
-- **Database**: PostgreSQL with TypeORM
+- **Database**: MongoDB with Mongoose
 - **Validation**: class-validator + class-transformer
 - **API Documentation**: Swagger/OpenAPI
 - **Monitoring**: Sentry for error tracking and performance
@@ -40,9 +40,7 @@ src/
     service/           # Core services
 
   database/            # Database layer
-    DatabaseModule.ts  # Database module setup
-    data-source.ts     # TypeORM data source
-    migrations/        # Database migrations
+    DatabaseModule.ts  # Database module setup (Mongoose)
 
   shared/              # Shared utilities across modules
     decorator/         # Custom decorators
@@ -54,7 +52,8 @@ src/
     [Module]Module.ts  # Module definition
     controller/        # REST controllers
     dto/               # Module-specific DTOs
-    entity/            # TypeORM entities
+    schemas/           # Mongoose schemas
+      [Entity]Schema.ts
     interface/         # Module interfaces
     service/           # Business logic services
 
@@ -89,8 +88,8 @@ src/[module-name]/
     Update[Entity]PayloadDto.ts
     Filter[Entity]QueryDto.ts
     [Entity]Dto.ts
-  entity/              # TypeORM entities
-    [Entity].ts
+  schemas/             # Mongoose schemas
+    [Entity]Schema.ts
   interface/           # TypeScript interfaces
     [Entity].ts
 ```
@@ -128,41 +127,6 @@ yarn start:prod               # Production server
 # Set environment (required)
 # Windows PowerShell: $env:DEPLOY_ENV="local"
 # Linux/Mac: export DEPLOY_ENV=local
-```
-
-### Database Operations
-
-#### Using Docker (Recommended)
-```bash
-# Start all services (API + PostgreSQL)
-docker-compose up -d
-
-# Generate migration inside container
-docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn migration:generate"
-
-# Run migrations inside container
-docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn db:migrate"
-
-# Revert migration inside container
-docker exec -it base-project-nest sh -c "DEPLOY_ENV=local yarn migration:revert"
-
-# View logs
-docker-compose logs -f base-project-nest
-```
-
-#### Local Development (Without Docker)
-```bash
-# Windows PowerShell
-$env:DEPLOY_ENV="local"
-yarn migration:generate
-yarn db:migrate
-yarn migration:revert
-
-# Linux/Mac
-export DEPLOY_ENV=local
-yarn migration:generate
-yarn db:migrate
-yarn migration:revert
 ```
 
 ### Testing
@@ -205,7 +169,7 @@ export DEPLOY_ENV=development  # Uses development.env + base.env
 ```
 
 ### Required Environment Variables
-- Database connection settings (DB_HOST, DB_PORT, DB_USERNAME, etc.)
+- MongoDB connection settings (MONGODB)
 - Sentry configuration for error monitoring
 - Application port and other service configurations
 
@@ -213,8 +177,8 @@ export DEPLOY_ENV=development  # Uses development.env + base.env
 
 1. **HTTP Request** → NestJS Controller (with validation decorators)
 2. **Controller** → Service (business logic layer)  
-3. **Service** → Repository/Entity (data access via TypeORM)
-4. **Database** → PostgreSQL operations
+3. **Service** → Schema/Model (data access via Mongoose)
+4. **Database** → MongoDB operations
 5. **Response** ← Formatted DTO back through the chain
 
 ### Error Handling Flow
@@ -227,10 +191,9 @@ export DEPLOY_ENV=development  # Uses development.env + base.env
 
 ### Core Components
 
-#### Database Layer (TypeORM)
-- **Entities**: Define database schema with decorators (`@Entity`, `@Column`, etc.)
-- **Migrations**: Version-controlled database changes in `src/database/migrations/`
-- **Data Source**: Centralized database configuration in `data-source.ts`
+#### Database Layer (Mongoose)
+- **Schemas**: Define database schema with decorators (`@Schema`, `@Prop`)
+- **Models**: Access data via injected models in services
 
 #### Validation & Transformation
 - **DTOs**: Request/response data transfer objects with validation
@@ -251,27 +214,18 @@ export DEPLOY_ENV=development  # Uses development.env + base.env
 
 This serves as a **template** for creating new modules. Study [src/users/](src/users/) for complete implementation:
 
-#### Entity Pattern ([User.ts](src/users/entity/User.ts))
+#### Schema Pattern ([UserSchema.ts](src/users/schemas/UserSchema.ts))
 ```typescript
-@Entity('users')
+@Schema({ timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } })
 export class User {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Column({ type: 'varchar', length: 150, nullable: true })
+  @Prop({ type: String, required: false })
   firstName: string;
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
-  updatedAt: Date;
-
-  @VersionColumn()
-  version: number; // For optimistic locking
-
-  // Proper column naming with snake_case in DB, camelCase in code
+  @Prop({ type: Number, default: 0 })
+  version: number;
 }
+
+export const UserSchema = SchemaFactory.createForClass(User);
 ```
 
 #### Service Pattern ([UserService.ts](src/users/service/UserService.ts))
@@ -279,25 +233,21 @@ export class User {
 @Injectable()
 export class UserService {
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-    private dataSource: DataSource,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
   ) {}
 
   async create(dto: CreateUserPayloadDto): Promise<User> {
     try {
-      const user = this.userRepository.create(dto);
-      return await this.userRepository.save(user);
+      const user = new this.userModel(dto);
+      return await user.save();
     } catch (error) {
-      if (error.code === '23505') {
+      if (error.code === 11000) {
         throw new DuplicateEntityError('User already exists', 'User', error.code);
       }
       throw error;
     }
   }
-
-  // Transaction management for complex operations
-  // Optimistic locking with version checking
 }
 ```
 
@@ -335,28 +285,25 @@ export class UserController {
 Follow the pattern established in existing modules ([users](src/users/), [auth](src/auth/), [sms-validation](src/sms-validation/)):
 
 1. **Create Feature Branch**: `git checkout -b feat/module-name develop`
-2. **Create Module Directory**: `src/[module-name]/` with subfolders: `controller/`, `service/`, `dto/`, `entity/`, `interface/`
-3. **Define Entity**: Create TypeORM entity in `entity/[Entity].ts` with proper decorators
-4. **Generate Migration**: Run `yarn migration:generate` (automatically builds first)
-5. **Create DTOs**: Request/response objects in `dto/` with class-validator decorators
-6. **Implement Service**: Business logic in `service/[Module]Service.ts` with proper error handling
-7. **Create Controller**: REST endpoints in `controller/[Module]Controller.ts` with Swagger documentation
-8. **Write Tests**: `service/[Module]Service.spec.ts` and `controller/[Module]Controller.spec.ts`
-9. **Define Module**: NestJS module in `[Module]Module.ts` importing TypeORM entities
-10. **Register Module**: Import in [AppModule.ts](src/AppModule.ts)
-11. **Run Migration**: Apply database changes with `yarn db:migrate`
-12. **Create PR**: Push branch and create PR against `develop`
+2. **Create Module Directory**: `src/[module-name]/` with subfolders: `controller/`, `service/`, `dto/`, `schemas/`, `interface/`
+3. **Define Schema**: Create Mongoose schema in `schemas/[Entity]Schema.ts` with proper decorators
+4. **Create DTOs**: Request/response objects in `dto/` with class-validator decorators
+5. **Implement Service**: Business logic in `service/[Module]Service.ts` with proper error handling
+6. **Create Controller**: REST endpoints in `controller/[Module]Controller.ts` with Swagger documentation
+7. **Write Tests**: `service/[Module]Service.spec.ts` and `controller/[Module]Controller.spec.ts`
+8. **Define Module**: NestJS module in `[Module]Module.ts` registering Mongoose schemas
+9. **Register Module**: Import in [AppModule.ts](src/AppModule.ts)
+10. **Create PR**: Push branch and create PR against `develop`
 
 ### Module Checklist
 
-- [ ] Entity with proper decorators and relationships
+- [ ] Schema with proper decorators and relationships
 - [ ] Service with CRUD operations and business logic
 - [ ] Controller with validation, documentation, and error handling  
 - [ ] DTOs for create, update, filter, and response
 - [ ] Unit tests for service and controller
 - [ ] Interface definitions if needed
 - [ ] Update AppModule imports
-- [ ] Generate and run database migration
 
 ## Sub-Agent Workflow
 
@@ -493,14 +440,14 @@ The only way to skip tests: David EXPLICITLY states "I AUTHORIZE YOU TO SKIP WRI
 2. **Dependency Injection**: Use NestJS IoC container, inject dependencies via constructor
 3. **Thin Controllers**: Controllers handle HTTP concerns, delegate business logic to services
 4. **Service Layer**: Business logic and orchestration in services
-5. **Repository Pattern**: Data access through TypeORM repositories
+5. **Repository Pattern**: Data access through Mongoose models
 6. **DTO Validation**: Use class-validator for all input/output validation
 7. **Error Handling**: Use custom exceptions with global exception filter
 8. **Documentation**: Swagger decorators for all API endpoints
 
 ### Code Organization Rules
 
-1. **Module Structure**: Follow the established pattern (controller/, service/, dto/, entity/, interface/)
+1. **Module Structure**: Follow the established pattern (controller/, service/, dto/, schemas/, interface/)
 2. **Naming Conventions**:
    - PascalCase for classes, interfaces, enums, types
    - camelCase for methods, properties, variables
@@ -510,13 +457,13 @@ The only way to skip tests: David EXPLICITLY states "I AUTHORIZE YOU TO SKIP WRI
    ```typescript
    // 1. NestJS imports
    import { Injectable } from '@nestjs/common';
-   import { InjectRepository } from '@nestjs/typeorm';
+   import { InjectModel } from '@nestjs/mongoose';
 
    // 2. Third-party imports
-   import { Repository } from 'typeorm';
+   import { Model } from 'mongoose';
 
    // 3. Local imports (relative paths)
-   import { User } from '../entity/User';
+   import { User } from '../schemas/UserSchema';
    import { CreateUserPayloadDto } from '../dto/CreateUserPayloadDto';
    ```
 4. **Type Safety**: Strong typing throughout, avoid `any` type (noImplicitAny is disabled for gradual adoption)
@@ -561,20 +508,21 @@ Reference the existing `UserService.spec.ts` for mocking patterns:
 ```typescript
 describe('UserService', () => {
   let service: UserService;
-  let repository: Repository<User>;
-  let dataSource: DataSource;
+  let model: Model<User>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UserService,
-        { provide: getRepositoryToken(User), useClass: Repository },
-        { provide: DataSource, useValue: mockDataSource },
+        {
+          provide: getModelToken(User.name),
+          useValue: mockModel,
+        },
       ],
     }).compile();
 
     service = module.get<UserService>(UserService);
-    repository = module.get<Repository<User>>(getRepositoryToken(User));
+    model = module.get<Model<User>>(getModelToken(User.name));
   });
 
   // Test cases covering all service methods
@@ -591,7 +539,7 @@ Reference `UserController.spec.ts` for HTTP request/response testing with proper
 Always use custom error classes from [src/shared/error/](src/shared/error/):
 ```typescript
 // Good
-if (error.code === '23505') {
+if (error.code === 11000) {
   throw new DuplicateEntityError('Entity exists', 'Entity', error.code);
 }
 if (!entity) {
@@ -602,35 +550,12 @@ if (!entity) {
 throw new Error('Something went wrong');
 ```
 
-### Transaction Pattern
-For operations involving multiple database writes:
-```typescript
-async complexOperation(dto: CreateDto): Promise<Result> {
-  const queryRunner = this.dataSource.createQueryRunner();
-  await queryRunner.connect();
-  await queryRunner.startTransaction();
-
-  try {
-    // Multiple operations
-    const entity = await queryRunner.manager.save(Entity, dto);
-    await queryRunner.manager.save(RelatedEntity, { entityId: entity.id });
-
-    await queryRunner.commitTransaction();
-    return entity;
-  } catch (error) {
-    await queryRunner.rollbackTransaction();
-    throw error;
-  } finally {
-    await queryRunner.release();
-  }
-}
-```
+// For operations involving multiple database writes, use Mongoose transactions if needed.
 
 ### Common Pitfalls to Avoid
 - Never use `any` type - maintain strict TypeScript typing
 - Don't create controllers without corresponding unit tests
-- Avoid direct database queries - use repository pattern via `@InjectRepository()`
-- Never skip migration generation after entity changes
+- Avoid direct database queries - use models via `@InjectModel()`
 - Don't implement business logic in controllers - keep them thin
 - Always validate input DTOs with class-validator decorators
 - Never commit without running `yarn test` and ensuring all tests pass

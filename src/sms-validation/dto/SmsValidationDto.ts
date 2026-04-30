@@ -3,7 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Status } from '../../users/enum/UserEnum';
 import { SmsValidationAction } from '../enum/SmsValidationAction';
 import { SmsValidationStatus } from '../enum/SmsValidationStatus';
-import { SmsValidation } from '../entity/SmsValidation';
+import { SmsValidation } from '../schemas/SmsValidationSchema';
 import { IsNotEmpty } from 'class-validator';
 
 export class SmsValidationDto {
@@ -81,8 +81,8 @@ export class SmsValidationDto {
   static buildDto(smsValidation: SmsValidation): SmsValidationDto {
     const dto = new SmsValidationDto();
     dto.id = smsValidation.id;
-    dto.phone = smsValidation.phone;
-    dto.smsProvider = smsValidation.smsProvider;
+    dto.phone = smsValidation.phone!;
+    dto.smsProvider = smsValidation.smsProvider as string;
     dto.status = smsValidation.status;
     dto.smsServiceSid = smsValidation.smsServiceSid;
     dto.smsRequestSid = smsValidation.smsRequestSid;
