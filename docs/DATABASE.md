@@ -4,20 +4,21 @@
 
 ## Overview
 
-| Storage | Technology | Purpose |
-|---|---|---|
-| Primary | PostgreSQL 16 (TypeORM) | Relational data, all business entities |
-| Aux / Legacy | MongoDB (Mongoose) | SMS validation, legacy auth data |
-| Cache | Redis 7 | Sessions, rate limits, job state, temp data |
-| Queue | Redis (BullMQ) | Async job queue backing store |
-| Media | Cloudinary | All binary asset storage and delivery |
-| Archive | AWS S3 (optional) | Long-term backup of exports and raw uploads |
+| Storage      | Technology              | Purpose                                     |
+| ------------ | ----------------------- | ------------------------------------------- |
+| Primary      | PostgreSQL 16 (TypeORM) | Relational data, all business entities      |
+| Aux / Legacy | MongoDB (Mongoose)      | SMS validation, legacy auth data            |
+| Cache        | Redis 7                 | Sessions, rate limits, job state, temp data |
+| Queue        | Redis (BullMQ)          | Async job queue backing store               |
+| Media        | Cloudinary              | All binary asset storage and delivery       |
+| Archive      | AWS S3 (optional)       | Long-term backup of exports and raw uploads |
 
 ---
 
 ## PostgreSQL — Entity Schema
 
 ### `users`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 email           VARCHAR(255) UNIQUE NOT NULL
@@ -35,6 +36,7 @@ version         INTEGER DEFAULT 1
 ```
 
 ### `refresh_tokens`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
@@ -43,9 +45,11 @@ expires_at      TIMESTAMPTZ NOT NULL
 is_revoked      BOOLEAN DEFAULT false
 created_at      TIMESTAMPTZ DEFAULT now()
 ```
+
 Index: `(user_id, is_revoked)`
 
 ### `organizations`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 name            VARCHAR(255) NOT NULL
@@ -60,6 +64,7 @@ version         INTEGER DEFAULT 1
 ```
 
 ### `organization_members`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE
@@ -71,6 +76,7 @@ UNIQUE(organization_id, user_id)
 ```
 
 ### `workspaces`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 name            VARCHAR(255) NOT NULL
@@ -83,6 +89,7 @@ version         INTEGER DEFAULT 1
 ```
 
 ### `workspace_members`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 workspace_id    UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE
@@ -92,6 +99,7 @@ UNIQUE(workspace_id, user_id)
 ```
 
 ### `projects`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 name            VARCHAR(255) NOT NULL
@@ -106,9 +114,11 @@ created_at      TIMESTAMPTZ DEFAULT now()
 updated_at      TIMESTAMPTZ DEFAULT now()
 version         INTEGER DEFAULT 1
 ```
+
 Index: `(workspace_id, status)`, `(organization_id, status)`
 
 ### `project_versions`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 project_id      UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE
@@ -121,6 +131,7 @@ UNIQUE(project_id, version_number)
 ```
 
 ### `folders`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 name            VARCHAR(255) NOT NULL
@@ -133,6 +144,7 @@ updated_at      TIMESTAMPTZ DEFAULT now()
 ```
 
 ### `assets`
+
 ```sql
 id                  UUID PRIMARY KEY DEFAULT gen_random_uuid()
 name                VARCHAR(255) NOT NULL
@@ -155,9 +167,11 @@ created_at          TIMESTAMPTZ DEFAULT now()
 updated_at          TIMESTAMPTZ DEFAULT now()
 version             INTEGER DEFAULT 1
 ```
+
 Index: `(workspace_id, type, is_archived)`, `(organization_id, created_at DESC)`
 
 ### `asset_versions`
+
 ```sql
 id                   UUID PRIMARY KEY DEFAULT gen_random_uuid()
 asset_id             UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE
@@ -172,6 +186,7 @@ UNIQUE(asset_id, version_number)
 ```
 
 ### `layers`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 project_id      UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE
@@ -190,9 +205,11 @@ content         JSONB DEFAULT '{}'            -- text content, shape type, stick
 created_at      TIMESTAMPTZ DEFAULT now()
 updated_at      TIMESTAMPTZ DEFAULT now()
 ```
+
 Index: `(project_id, order_index)`
 
 ### `editor_sessions`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 project_id      UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE
@@ -203,6 +220,7 @@ started_at      TIMESTAMPTZ DEFAULT now()
 ```
 
 ### `templates`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 name            VARCHAR(255) NOT NULL
@@ -221,6 +239,7 @@ updated_at      TIMESTAMPTZ DEFAULT now()
 ```
 
 ### `jobs`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 type            VARCHAR(50) NOT NULL   -- text-to-image|background-removal|export|ocr|...
@@ -238,9 +257,11 @@ started_at      TIMESTAMPTZ
 completed_at    TIMESTAMPTZ
 created_at      TIMESTAMPTZ DEFAULT now()
 ```
+
 Index: `(organization_id, status, created_at DESC)`, `(external_job_id)`
 
 ### `subscription_plans`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 name            VARCHAR(50) NOT NULL   -- Free|Starter|Pro|Business|Enterprise
@@ -255,6 +276,7 @@ is_active       BOOLEAN DEFAULT true
 ```
 
 ### `subscriptions`
+
 ```sql
 id                  UUID PRIMARY KEY DEFAULT gen_random_uuid()
 organization_id     UUID NOT NULL REFERENCES organizations(id)
@@ -269,6 +291,7 @@ updated_at          TIMESTAMPTZ DEFAULT now()
 ```
 
 ### `credits`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 organization_id UUID NOT NULL REFERENCES organizations(id)
@@ -279,6 +302,7 @@ updated_at      TIMESTAMPTZ DEFAULT now()
 ```
 
 ### `credit_transactions`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 organization_id UUID NOT NULL REFERENCES organizations(id)
@@ -292,6 +316,7 @@ created_at      TIMESTAMPTZ DEFAULT now()
 ```
 
 ### `activity_logs`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 organization_id UUID NOT NULL REFERENCES organizations(id)
@@ -304,9 +329,11 @@ ip_address      INET
 user_agent      TEXT
 created_at      TIMESTAMPTZ DEFAULT now()
 ```
+
 Index: `(organization_id, created_at DESC)`, `(user_id, created_at DESC)`
 
 ### `notifications`
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
@@ -317,6 +344,7 @@ data            JSONB DEFAULT '{}'
 is_read         BOOLEAN DEFAULT false
 created_at      TIMESTAMPTZ DEFAULT now()
 ```
+
 Index: `(user_id, is_read, created_at DESC)`
 
 ---
@@ -324,7 +352,9 @@ Index: `(user_id, is_read, created_at DESC)`
 ## MongoDB — Collections (Aux)
 
 ### `smsvalidations`
+
 Used by `SmsValidationModule` (Mongoose):
+
 ```typescript
 {
   phone: String,
@@ -341,19 +371,19 @@ Used by `SmsValidationModule` (Mongoose):
 
 ## Redis — Key Patterns
 
-| Key | TTL | Type | Purpose |
-|---|---|---|---|
-| `session:{userId}` | 15 min | Hash | JWT session metadata |
-| `refresh:{tokenHash}` | 7 days | String | Refresh token tracking |
-| `asset:{id}:meta` | 1 hr | Hash | Asset metadata cache |
-| `template:{id}` | 24 hr | String (JSON) | Template definition cache |
-| `org:{id}:settings` | 1 hr | Hash | Org settings cache |
-| `credits:{orgId}` | 5 min | String | Credit balance cache |
-| `rl:{ip}:{route}` | 1 min | String (counter) | Rate limit counter |
-| `rl:user:{id}:{route}` | 1 min | String (counter) | Per-user rate limit |
-| `signed-upload:{id}` | 10 min | String (JSON) | Signed upload params |
-| `job:{jobId}:status` | 24 hr | String | BullMQ job status mirror |
-| `collab:{projectId}:users` | session | Set | Active editor presence |
+| Key                        | TTL     | Type             | Purpose                   |
+| -------------------------- | ------- | ---------------- | ------------------------- |
+| `session:{userId}`         | 15 min  | Hash             | JWT session metadata      |
+| `refresh:{tokenHash}`      | 7 days  | String           | Refresh token tracking    |
+| `asset:{id}:meta`          | 1 hr    | Hash             | Asset metadata cache      |
+| `template:{id}`            | 24 hr   | String (JSON)    | Template definition cache |
+| `org:{id}:settings`        | 1 hr    | Hash             | Org settings cache        |
+| `credits:{orgId}`          | 5 min   | String           | Credit balance cache      |
+| `rl:{ip}:{route}`          | 1 min   | String (counter) | Rate limit counter        |
+| `rl:user:{id}:{route}`     | 1 min   | String (counter) | Per-user rate limit       |
+| `signed-upload:{id}`       | 10 min  | String (JSON)    | Signed upload params      |
+| `job:{jobId}:status`       | 24 hr   | String           | BullMQ job status mirror  |
+| `collab:{projectId}:users` | session | Set              | Active editor presence    |
 
 ---
 
@@ -407,13 +437,13 @@ yarn migration:revert
 
 ## Database Indexes Summary
 
-| Table | Index |
-|---|---|
-| `users` | `email` (unique), `phone` (unique) |
-| `assets` | `(workspace_id, type, is_archived)`, `(organization_id, created_at DESC)` |
-| `projects` | `(workspace_id, status)`, `(organization_id, status)` |
-| `layers` | `(project_id, order_index)` |
-| `jobs` | `(organization_id, status, created_at DESC)`, `external_job_id` |
-| `activity_logs` | `(organization_id, created_at DESC)`, `(user_id, created_at DESC)` |
-| `notifications` | `(user_id, is_read, created_at DESC)` |
-| `refresh_tokens` | `(user_id, is_revoked)` |
+| Table            | Index                                                                     |
+| ---------------- | ------------------------------------------------------------------------- |
+| `users`          | `email` (unique), `phone` (unique)                                        |
+| `assets`         | `(workspace_id, type, is_archived)`, `(organization_id, created_at DESC)` |
+| `projects`       | `(workspace_id, status)`, `(organization_id, status)`                     |
+| `layers`         | `(project_id, order_index)`                                               |
+| `jobs`           | `(organization_id, status, created_at DESC)`, `external_job_id`           |
+| `activity_logs`  | `(organization_id, created_at DESC)`, `(user_id, created_at DESC)`        |
+| `notifications`  | `(user_id, is_read, created_at DESC)`                                     |
+| `refresh_tokens` | `(user_id, is_revoked)`                                                   |
