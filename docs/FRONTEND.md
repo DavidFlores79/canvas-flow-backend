@@ -6,18 +6,18 @@
 
 ## Tech Stack
 
-| Concern | Technology |
-|---|---|
-| Framework | Angular 20 (standalone components) |
+| Concern          | Technology                              |
+| ---------------- | --------------------------------------- |
+| Framework        | Angular 20 (standalone components)      |
 | State Management | Angular Signals + NgRx (feature stores) |
-| Styling | Tailwind CSS |
-| Canvas Rendering | Fabric.js / Konva.js |
-| HTTP | Angular `HttpClient` + interceptors |
-| WebSocket | `@angular/cdk` + native WebSocket |
-| Forms | Reactive Forms (strict typing) |
-| Testing | Jest + Testing Library |
-| E2E | Playwright |
-| Build | Vite (Angular builder) |
+| Styling          | Tailwind CSS                            |
+| Canvas Rendering | Fabric.js / Konva.js                    |
+| HTTP             | Angular `HttpClient` + interceptors     |
+| WebSocket        | `@angular/cdk` + native WebSocket       |
+| Forms            | Reactive Forms (strict typing)          |
+| Testing          | Jest + Testing Library                  |
+| E2E              | Playwright                              |
+| Build            | Vite (Angular builder)                  |
 
 ---
 
@@ -115,10 +115,12 @@ export class EditorStore {
 
   // Computed
   readonly selectedLayers = computed(() =>
-    this.layers().filter(l => this.selectedLayerIds().includes(l.id))
+    this.layers().filter((l) => this.selectedLayerIds().includes(l.id)),
   );
   readonly canUndo = computed(() => this.historyIndex() > 0);
-  readonly canRedo = computed(() => this.historyIndex() < this.historyStack().length - 1);
+  readonly canRedo = computed(
+    () => this.historyIndex() < this.historyStack().length - 1,
+  );
 }
 ```
 
@@ -128,50 +130,50 @@ export class EditorStore {
 
 ### Layout Components
 
-| Component | Description |
-|---|---|
-| `AppShellComponent` | Root layout shell |
-| `SidebarComponent` | Navigation sidebar |
-| `HeaderComponent` | Top navigation bar |
+| Component             | Description           |
+| --------------------- | --------------------- |
+| `AppShellComponent`   | Root layout shell     |
+| `SidebarComponent`    | Navigation sidebar    |
+| `HeaderComponent`     | Top navigation bar    |
 | `BreadcrumbComponent` | Page breadcrumb trail |
 
 ### Editor Components
 
-| Component | Description |
-|---|---|
-| `CanvasComponent` | Core Fabric.js canvas wrapper |
-| `LayersPanelComponent` | Layer list with drag-and-drop reorder |
-| `LayerItemComponent` | Individual layer row (visibility, lock, rename) |
-| `ToolbarComponent` | Top toolbar (tool selection, zoom, undo/redo) |
-| `TransformInspectorComponent` | X/Y/W/H/rotation/flip controls |
-| `StyleInspectorComponent` | Fill, stroke, opacity, blend mode |
-| `EffectsInspectorComponent` | Shadows, glows, filters |
-| `FiltersPanelComponent` | Brightness, contrast, saturation, blur, sharpen |
-| `AiToolsPanelComponent` | Generate, enhance, remove BG, fill, outpaint |
-| `AssetLibraryComponent` | Uploaded assets, drag to canvas |
-| `TemplatePickerComponent` | Browse and apply templates |
-| `HistoryPanelComponent` | Undo/redo step list |
-| `ExportDialogComponent` | Format, size, quality export controls |
-| `TextEditorOverlayComponent` | Inline text editing on canvas |
-| `ColorPickerComponent` | Color swatch + hex/RGB/HSL input |
-| `FontPickerComponent` | Font family, size, weight, spacing |
+| Component                     | Description                                     |
+| ----------------------------- | ----------------------------------------------- |
+| `CanvasComponent`             | Core Fabric.js canvas wrapper                   |
+| `LayersPanelComponent`        | Layer list with drag-and-drop reorder           |
+| `LayerItemComponent`          | Individual layer row (visibility, lock, rename) |
+| `ToolbarComponent`            | Top toolbar (tool selection, zoom, undo/redo)   |
+| `TransformInspectorComponent` | X/Y/W/H/rotation/flip controls                  |
+| `StyleInspectorComponent`     | Fill, stroke, opacity, blend mode               |
+| `EffectsInspectorComponent`   | Shadows, glows, filters                         |
+| `FiltersPanelComponent`       | Brightness, contrast, saturation, blur, sharpen |
+| `AiToolsPanelComponent`       | Generate, enhance, remove BG, fill, outpaint    |
+| `AssetLibraryComponent`       | Uploaded assets, drag to canvas                 |
+| `TemplatePickerComponent`     | Browse and apply templates                      |
+| `HistoryPanelComponent`       | Undo/redo step list                             |
+| `ExportDialogComponent`       | Format, size, quality export controls           |
+| `TextEditorOverlayComponent`  | Inline text editing on canvas                   |
+| `ColorPickerComponent`        | Color swatch + hex/RGB/HSL input                |
+| `FontPickerComponent`         | Font family, size, weight, spacing              |
 
 ### Asset Components
 
-| Component | Description |
-|---|---|
-| `AssetGridComponent` | Grid view of assets with lazy loading |
-| `AssetCardComponent` | Individual asset thumbnail card |
-| `AssetUploadZoneComponent` | Drag-and-drop upload area |
-| `AssetDetailDrawerComponent` | Slide-in asset metadata panel |
-| `FolderTreeComponent` | Hierarchical folder browser |
+| Component                    | Description                           |
+| ---------------------------- | ------------------------------------- |
+| `AssetGridComponent`         | Grid view of assets with lazy loading |
+| `AssetCardComponent`         | Individual asset thumbnail card       |
+| `AssetUploadZoneComponent`   | Drag-and-drop upload area             |
+| `AssetDetailDrawerComponent` | Slide-in asset metadata panel         |
+| `FolderTreeComponent`        | Hierarchical folder browser           |
 
 ### Project Components
 
-| Component | Description |
-|---|---|
-| `ProjectCardComponent` | Project thumbnail card |
-| `ProjectGridComponent` | Masonry/grid project listing |
+| Component                       | Description                      |
+| ------------------------------- | -------------------------------- |
+| `ProjectCardComponent`          | Project thumbnail card           |
+| `ProjectGridComponent`          | Masonry/grid project listing     |
 | `ProjectSettingsModalComponent` | Name, tags, canvas size settings |
 
 ---
@@ -179,6 +181,7 @@ export class EditorStore {
 ## Drag-and-Drop
 
 Uses `@angular/cdk/drag-drop` for:
+
 - Layer reordering in layers panel
 - Asset drag from library to canvas
 - Canvas element repositioning (delegated to Fabric.js)
@@ -220,7 +223,7 @@ Cloudinary-powered responsive images via `srcset`:
 export class CloudinaryResponsivePipe implements PipeTransform {
   transform(publicId: string, widths = [320, 640, 1280]): string {
     return widths
-      .map(w => `${buildCloudinaryUrl(publicId, { width: w })} ${w}w`)
+      .map((w) => `${buildCloudinaryUrl(publicId, { width: w })} ${w}w`)
       .join(', ');
   }
 }
@@ -230,24 +233,24 @@ export class CloudinaryResponsivePipe implements PipeTransform {
 
 ## HTTP Interceptors
 
-| Interceptor | Responsibility |
-|---|---|
-| `AuthInterceptor` | Attach `Authorization: Bearer <token>` header |
-| `RefreshTokenInterceptor` | Auto-refresh expired access tokens |
-| `ErrorInterceptor` | Global error toast + Sentry capture |
-| `LoadingInterceptor` | Global loading state signal |
+| Interceptor               | Responsibility                                |
+| ------------------------- | --------------------------------------------- |
+| `AuthInterceptor`         | Attach `Authorization: Bearer <token>` header |
+| `RefreshTokenInterceptor` | Auto-refresh expired access tokens            |
+| `ErrorInterceptor`        | Global error toast + Sentry capture           |
+| `LoadingInterceptor`      | Global loading state signal                   |
 
 ---
 
 ## Route Guards
 
-| Guard | Protects |
-|---|---|
-| `AuthGuard` | All authenticated routes |
-| `RoleGuard` | Admin-only routes |
-| `WorkspaceMemberGuard` | Workspace-scoped routes |
-| `EditorGuard` | Editor route — loads project + session |
-| `BillingGuard` | Premium feature routes |
+| Guard                  | Protects                               |
+| ---------------------- | -------------------------------------- |
+| `AuthGuard`            | All authenticated routes               |
+| `RoleGuard`            | Admin-only routes                      |
+| `WorkspaceMemberGuard` | Workspace-scoped routes                |
+| `EditorGuard`          | Editor route — loads project + session |
+| `BillingGuard`         | Premium feature routes                 |
 
 ---
 
@@ -257,9 +260,18 @@ All feature modules are lazy-loaded:
 
 ```typescript
 const routes: Routes = [
-  { path: 'editor/:id', loadComponent: () => import('./features/editor/EditorPage') },
-  { path: 'assets',     loadComponent: () => import('./features/assets/AssetsPage') },
-  { path: 'billing',    loadComponent: () => import('./features/billing/BillingPage') },
+  {
+    path: 'editor/:id',
+    loadComponent: () => import('./features/editor/EditorPage'),
+  },
+  {
+    path: 'assets',
+    loadComponent: () => import('./features/assets/AssetsPage'),
+  },
+  {
+    path: 'billing',
+    loadComponent: () => import('./features/billing/BillingPage'),
+  },
   // ...
 ];
 ```
@@ -324,6 +336,7 @@ yarn e2e
 ```
 
 **Test patterns:**
+
 - Components: Testing Library `render()` + user-event
 - Stores: unit test signal mutations directly
 - Services: mock `HttpClient` with `HttpClientTestingModule`

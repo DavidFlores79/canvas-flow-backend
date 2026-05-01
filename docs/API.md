@@ -18,6 +18,7 @@ http://localhost:3000             # local dev
 ### JWT Bearer Token
 
 All protected endpoints require:
+
 ```
 Authorization: Bearer <access_token>
 ```
@@ -49,16 +50,17 @@ POST /auth/sign-out
 
 Rate limits are enforced per IP and per authenticated user via Redis counters.
 
-| Tier | Limit | Window |
-|---|---|---|
-| Public endpoints | 60 req | 1 min |
-| Auth endpoints | 10 req | 1 min |
-| Authenticated user | 300 req | 1 min |
-| AI pipeline endpoints | 20 req | 1 min |
-| Export endpoints | 10 req | 1 min |
-| Webhook endpoints | 500 req | 1 min |
+| Tier                  | Limit   | Window |
+| --------------------- | ------- | ------ |
+| Public endpoints      | 60 req  | 1 min  |
+| Auth endpoints        | 10 req  | 1 min  |
+| Authenticated user    | 300 req | 1 min  |
+| AI pipeline endpoints | 20 req  | 1 min  |
+| Export endpoints      | 10 req  | 1 min  |
+| Webhook endpoints     | 500 req | 1 min  |
 
 **429 response:**
+
 ```json
 {
   "statusCode": 429,
@@ -72,6 +74,7 @@ Rate limits are enforced per IP and per authenticated user via Redis counters.
 ## Standard Response Format
 
 ### Success
+
 ```json
 {
   "data": { ... },
@@ -83,51 +86,52 @@ Rate limits are enforced per IP and per authenticated user via Redis counters.
   }
 }
 ```
+
 `meta` is only present on paginated list responses.
 
 ### Error
+
 ```json
 {
   "statusCode": 400,
   "error": "Bad Request",
   "message": "Validation failed",
-  "details": [
-    { "field": "email", "message": "must be a valid email" }
-  ]
+  "details": [{ "field": "email", "message": "must be a valid email" }]
 }
 ```
 
 ### Common Status Codes
 
-| Code | Meaning |
-|---|---|
-| 200 | OK |
-| 201 | Created |
-| 204 | No Content (delete / sign-out) |
-| 400 | Bad Request — validation failed |
-| 401 | Unauthorized — missing or invalid token |
-| 403 | Forbidden — insufficient permissions |
-| 404 | Not Found |
-| 409 | Conflict — duplicate entity |
-| 422 | Unprocessable Entity — business rule violation |
-| 429 | Too Many Requests |
-| 500 | Internal Server Error |
+| Code | Meaning                                        |
+| ---- | ---------------------------------------------- |
+| 200  | OK                                             |
+| 201  | Created                                        |
+| 204  | No Content (delete / sign-out)                 |
+| 400  | Bad Request — validation failed                |
+| 401  | Unauthorized — missing or invalid token        |
+| 403  | Forbidden — insufficient permissions           |
+| 404  | Not Found                                      |
+| 409  | Conflict — duplicate entity                    |
+| 422  | Unprocessable Entity — business rule violation |
+| 429  | Too Many Requests                              |
+| 500  | Internal Server Error                          |
 
 ---
 
 ## Pagination
 
 List endpoints accept:
+
 ```
 GET /assets?page=1&limit=20&sort=createdAt&order=DESC
 ```
 
-| Param | Default | Description |
-|---|---|---|
-| `page` | `1` | Page number (1-indexed) |
-| `limit` | `20` | Items per page (max 100) |
-| `sort` | `createdAt` | Sort field |
-| `order` | `DESC` | `ASC` or `DESC` |
+| Param   | Default     | Description              |
+| ------- | ----------- | ------------------------ |
+| `page`  | `1`         | Page number (1-indexed)  |
+| `limit` | `20`        | Items per page (max 100) |
+| `sort`  | `createdAt` | Sort field               |
+| `order` | `DESC`      | `ASC` or `DESC`          |
 
 ---
 
@@ -220,6 +224,7 @@ POST   /assets/batch
 #### GET /assets/upload-url
 
 **Request:**
+
 ```json
 {
   "filename": "photo.jpg",
@@ -230,6 +235,7 @@ POST   /assets/batch
 ```
 
 **Response:**
+
 ```json
 {
   "uploadUrl": "https://api.cloudinary.com/v1_1/...",
@@ -288,6 +294,7 @@ POST   /transformations/apply (apply to asset, returns new version)
 #### POST /transformations/apply
 
 **Request:**
+
 ```json
 {
   "assetId": "uuid",
@@ -301,6 +308,7 @@ POST   /transformations/apply (apply to asset, returns new version)
 ```
 
 **Response:**
+
 ```json
 {
   "transformedUrl": "https://res.cloudinary.com/...",
@@ -319,6 +327,7 @@ DELETE /ai-pipelines/:id     (cancel pending job)
 #### POST /ai-pipelines
 
 **Request (text-to-image):**
+
 ```json
 {
   "type": "text-to-image",
@@ -336,6 +345,7 @@ DELETE /ai-pipelines/:id     (cancel pending job)
 ```
 
 **Request (background-removal):**
+
 ```json
 {
   "type": "background-removal",
@@ -344,6 +354,7 @@ DELETE /ai-pipelines/:id     (cancel pending job)
 ```
 
 **Response (async job created):**
+
 ```json
 {
   "jobId": "uuid",
@@ -372,6 +383,7 @@ GET    /export-pipelines/history        (paginated export history)
 #### POST /export-pipelines
 
 **Request:**
+
 ```json
 {
   "projectId": "uuid",
@@ -469,27 +481,27 @@ Authentication: Pass `Authorization` header on connection or `token` query param
 
 ### Client → Server Events
 
-| Event | Payload | Description |
-|---|---|---|
-| `join-project` | `{ projectId }` | Join project room |
-| `leave-project` | `{ projectId }` | Leave project room |
-| `layer-update` | `{ projectId, layer }` | Broadcast layer change |
-| `cursor-move` | `{ projectId, x, y }` | Broadcast cursor position |
-| `ping` | — | Keepalive |
+| Event           | Payload                | Description               |
+| --------------- | ---------------------- | ------------------------- |
+| `join-project`  | `{ projectId }`        | Join project room         |
+| `leave-project` | `{ projectId }`        | Leave project room        |
+| `layer-update`  | `{ projectId, layer }` | Broadcast layer change    |
+| `cursor-move`   | `{ projectId, x, y }`  | Broadcast cursor position |
+| `ping`          | —                      | Keepalive                 |
 
 ### Server → Client Events
 
-| Event | Payload | Description |
-|---|---|---|
-| `project-joined` | `{ sessionId, activeUsers }` | Confirm join |
-| `user-joined` | `{ userId, name, avatarUrl }` | Another user joined |
-| `user-left` | `{ userId }` | Another user left |
-| `layer-updated` | `{ layer, updatedBy }` | Layer changed by another user |
-| `layer-locked` | `{ layerId, lockedBy }` | Layer locked by another user |
-| `layer-unlocked` | `{ layerId }` | Layer lock released |
-| `job-complete` | `{ jobId, type, result }` | Async job finished |
-| `export-ready` | `{ exportId, downloadUrl }` | Export ready to download |
-| `credits-updated` | `{ balance }` | Credit balance changed |
+| Event             | Payload                       | Description                   |
+| ----------------- | ----------------------------- | ----------------------------- |
+| `project-joined`  | `{ sessionId, activeUsers }`  | Confirm join                  |
+| `user-joined`     | `{ userId, name, avatarUrl }` | Another user joined           |
+| `user-left`       | `{ userId }`                  | Another user left             |
+| `layer-updated`   | `{ layer, updatedBy }`        | Layer changed by another user |
+| `layer-locked`    | `{ layerId, lockedBy }`       | Layer locked by another user  |
+| `layer-unlocked`  | `{ layerId }`                 | Layer lock released           |
+| `job-complete`    | `{ jobId, type, result }`     | Async job finished            |
+| `export-ready`    | `{ exportId, downloadUrl }`   | Export ready to download      |
+| `credits-updated` | `{ balance }`                 | Credit balance changed        |
 
 ---
 
