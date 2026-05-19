@@ -365,3 +365,40 @@ yarn add @casl/ability
 - Redis + BullMQ configuration
 - `jobs` module — queue Leonardo AI generation tasks
 - Job processors with retry logic and status tracking
+
+## Phase 5: Frontend-Ready API Fixes (planned — see context_session_frontend-ready-api.md)
+
+**Branch**: `feat/frontend-ready-api` (from `feat/media-platform-backend-core`)
+
+Four critical gaps were identified that block the frontend entirely:
+
+### Fix 1: Auto org context on sign-in
+- `AuthService.signIn()` now queries first org membership and embeds `organizationId`+`orgRole` in JWT
+- `UserSessionDto` returns `organizationId` (active) + `organizations[]` (all orgs user belongs to)
+- New `OrgSummaryDto`: `{ id, name, slug, role }`
+
+### Fix 2: POST /assets/upload
+- Multipart file upload → Cloudinary (`canvas-flow/{orgId}`) → Asset record
+- `@types/multer` required as dev dependency
+- `AssetsModule` imports `CloudinaryModule`
+- 10 MB file size limit
+
+### Fix 3: POST /assets/:id/transform
+- Background removal, resize/crop, filters (brightness/contrast/grayscale/blur), format conversion
+- Always creates a NEW Asset (original preserved)
+- Uses Cloudinary derived URL → re-uploads as new file → new Asset record
+- Cloudinary folder: `canvas-flow/{orgId}/transforms`
+
+### Fix 4: POST /ai/generate (new AiModule)
+- Sync server-side polling: Leonardo createGeneration → poll every 3s max 60s → download → Cloudinary → Asset(s)
+- `server.setTimeout(90_000)` in `main.ts` to avoid HTTP timeout
+- Cloudinary folder: `canvas-flow/{orgId}/ai-generated`
+- Returns array of `AssetDto` (one per generated image)
+
+### API Contract
+| Method | Endpoint                  | Description                                 |
+|--------|---------------------------|---------------------------------------------|
+| POST   | `/v1/auth/sign-in`        | Returns JWT + organizationId + organizations[] |
+| POST   | `/assets/upload`          | Multipart upload → Cloudinary → Asset       |
+| POST   | `/assets/:id/transform`   | Transform asset → new Asset                 |
+| POST   | `/ai/generate`            | AI image generation → Asset(s)              |
