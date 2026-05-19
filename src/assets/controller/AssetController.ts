@@ -1,4 +1,4 @@
-// ABOUTME: REST controller for Asset CRUD operations
+// ABOUTME: REST controller for Asset operations — CRUD, file upload, and image transformation
 // ABOUTME: Applies JWT, TenantGuard, and PoliciesGuard for route-level authorization
 
 import {
@@ -13,7 +13,10 @@ import {
   HttpStatus,
   UseGuards,
   Request,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -23,10 +26,14 @@ import {
   ApiNotFoundResponse,
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 
 import { AssetService } from '../service/AssetService';
 import { CreateAssetPayloadDto } from '../dto/CreateAssetPayloadDto';
+import { UploadAssetPayloadDto } from '../dto/UploadAssetPayloadDto';
+import { TransformAssetPayloadDto } from '../dto/TransformAssetPayloadDto';
 import { FilterAssetsQueryDto } from '../dto/FilterAssetsQueryDto';
 import { AssetDto } from '../dto/AssetDto';
 import { JwtAuthGuard } from '../../auth/guard/JwtAuthGuard';
@@ -59,6 +66,51 @@ function mapToAssetDto(asset: Asset & { _id?: unknown; id?: string }): AssetDto 
 @Controller('assets')
 export class AssetController {
   constructor(private readonly assetService: AssetService) {}
+
+  @Post('upload')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
+  @CheckPolicies((a: AppAbility) => a.can('create', 'Asset'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ operationId: 'uploadAsset', summary: 'Upload file to Cloudinary and create Asset record' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file', 'workspaceId'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        workspaceId: { type: 'string' },
+        type: { type: 'string', enum: ['image', 'video', 'document'] },
+      },
+    },
+  })
+  @ApiCreatedResponse({ description: 'Asset uploaded and created', type: AssetDto })
+  @ApiBadRequestResponse({ description: 'Validation error or missing file' })
+  async upload(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: UploadAssetPayloadDto,
+    @Request() req: RequestWithUser,
+  ): Promise<AssetDto> {
+    const asset = await this.assetService.upload(file, dto, req.user.organizationId);
+    return mapToAssetDto(asset);
+  }
+
+  @Post(':id/transform')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
+  @CheckPolicies((a: AppAbility) => a.can('create', 'Asset'))
+  @ApiOperation({ operationId: 'transformAsset', summary: 'Apply transformations to an asset and save as new Asset' })
+  @ApiCreatedResponse({ description: 'Transformed asset created', type: AssetDto })
+  @ApiNotFoundResponse({ description: 'Source asset not found' })
+  async transform(
+    @Param('id') id: string,
+    @Body() dto: TransformAssetPayloadDto,
+    @Request() req: RequestWithUser,
+  ): Promise<AssetDto> {
+    const asset = await this.assetService.transform(id, dto, req.user.organizationId);
+    return mapToAssetDto(asset);
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)

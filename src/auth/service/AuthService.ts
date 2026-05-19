@@ -97,7 +97,19 @@ export class AuthService {
       }
     }
 
-    const { accessToken, refreshToken, kid } = await this.generateTokensForUser(user);
+    const memberships = await this.orgMemberModel
+      .find({ userId: new Types.ObjectId(user.id) })
+      .sort({ _id: 1 })
+      .lean()
+      .exec();
+
+    const firstMembership = memberships[0] ?? undefined;
+
+    const { accessToken, refreshToken, kid } = await this.generateTokensForUser(
+      user,
+      undefined,
+      firstMembership,
+    );
 
     this.logger.log(`User signed in successfully: ${user.id}`);
 
@@ -106,6 +118,11 @@ export class AuthService {
     userSession.kid = kid;
     userSession.jwt = accessToken;
     userSession.refreshToken = refreshToken;
+    userSession.organizationId = firstMembership?.organizationId?.toString();
+    userSession.organizations = memberships.map((m) => ({
+      id: m.organizationId.toString(),
+      role: m.role,
+    }));
 
     return userSession;
   }

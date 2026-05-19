@@ -19,6 +19,7 @@ import { LayersModule } from './layers/LayersModule';
 import { AssetsModule } from './assets/AssetsModule';
 import { CloudinaryModule } from './cloudinary/CloudinaryModule';
 import { LeonardoModule } from './leonardo/LeonardoModule';
+import { AiModule } from './ai/AiModule';
 import { HttpExceptionFilter } from './interceptors/HttpExceptionFilter';
 
 @Module({
@@ -42,6 +43,7 @@ import { HttpExceptionFilter } from './interceptors/HttpExceptionFilter';
     AssetsModule,
     CloudinaryModule,
     LeonardoModule,
+    AiModule,
   ],
   providers: [
     {

@@ -1,15 +1,18 @@
-// ABOUTME: Unit tests for AssetService covering create, findAll, findById, and delete
-// ABOUTME: Uses mocked Mongoose models following the project's established test patterns
+// ABOUTME: Unit tests for AssetService covering create, upload, transform, findAll, findById, and delete
+// ABOUTME: Uses mocked Mongoose models and mocked CloudinaryService following established test patterns
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { Logger } from '@nestjs/common';
+import { Logger, UnprocessableEntityException } from '@nestjs/common';
 import { Types } from 'mongoose';
 
 import { AssetService } from './AssetService';
 import { Asset } from '../schemas/AssetSchema';
 import { CreateAssetPayloadDto } from '../dto/CreateAssetPayloadDto';
 import { FilterAssetsQueryDto } from '../dto/FilterAssetsQueryDto';
+import { UploadAssetPayloadDto } from '../dto/UploadAssetPayloadDto';
+import { TransformAssetPayloadDto } from '../dto/TransformAssetPayloadDto';
+import { CloudinaryService } from '../../cloudinary/service/CloudinaryService';
 import { NotFoundEntityError } from '../../shared/error/NotFoundEntityError';
 
 const fakeOrgId = new Types.ObjectId().toString();
@@ -27,6 +30,12 @@ const fakeAsset = {
   metadata: new Map([['width', 1920], ['height', 1080]]),
   createdAt: new Date(),
   updatedAt: new Date(),
+};
+
+const mockCloudinaryService = {
+  uploadFile: jest.fn(),
+  deleteFile: jest.fn(),
+  getTransformUrl: jest.fn(),
 };
 
 type MockAssetModel = {
@@ -59,6 +68,7 @@ describe('AssetService', () => {
       providers: [
         AssetService,
         { provide: getModelToken(Asset.name), useValue: assetModel },
+        { provide: CloudinaryService, useValue: mockCloudinaryService },
       ],
     }).compile();
 
@@ -96,6 +106,98 @@ describe('AssetService', () => {
 
       const result = await service.create(dto, fakeOrgId);
       expect(result).toBeDefined();
+    });
+  });
+
+  describe('upload', () => {
+    const fakeFile = {
+      buffer: Buffer.from('fake-image'),
+      originalname: 'photo.jpg',
+      mimetype: 'image/jpeg',
+    } as Express.Multer.File;
+
+    const fakeUploadResult = {
+      publicId: 'canvas-flow/org123/photo',
+      url: 'https://res.cloudinary.com/demo/image/upload/canvas-flow/org123/photo.jpg',
+      resourceType: 'image',
+    };
+
+    it('uploads file to Cloudinary and creates Asset record', async () => {
+      mockCloudinaryService.uploadFile.mockResolvedValue(fakeUploadResult);
+
+      const dto: UploadAssetPayloadDto = { workspaceId: fakeWorkspaceId };
+      const result = await service.upload(fakeFile, dto, fakeOrgId);
+
+      expect(mockCloudinaryService.uploadFile).toHaveBeenCalledWith(
+        fakeFile,
+        `canvas-flow/${fakeOrgId}`,
+      );
+      expect(result).toEqual(fakeAsset);
+    });
+
+    it('uses explicit type from DTO over Cloudinary resourceType', async () => {
+      mockCloudinaryService.uploadFile.mockResolvedValue(fakeUploadResult);
+
+      const dto: UploadAssetPayloadDto = { workspaceId: fakeWorkspaceId, type: 'document' };
+      const result = await service.upload(fakeFile, dto, fakeOrgId);
+
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('transform', () => {
+    const derivedUrl = 'https://res.cloudinary.com/demo/image/upload/e_grayscale/samples/landscape.jpg';
+
+    beforeEach(() => {
+      assetModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(fakeAsset) });
+      mockCloudinaryService.getTransformUrl.mockReturnValue(derivedUrl);
+      mockCloudinaryService.uploadFile.mockResolvedValue({
+        publicId: 'canvas-flow/org/transforms/transformed',
+        url: 'https://res.cloudinary.com/demo/image/upload/transforms/transformed.png',
+        resourceType: 'image',
+      });
+    });
+
+    it('fetches derived URL, re-uploads, and creates new Asset', async () => {
+      const mockFetch = jest.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(8)),
+      });
+      global.fetch = mockFetch;
+
+      const dto: TransformAssetPayloadDto = {
+        workspaceId: fakeWorkspaceId,
+        grayscale: true,
+      };
+
+      const result = await service.transform(fakeAssetId, dto, fakeOrgId);
+
+      expect(mockCloudinaryService.getTransformUrl).toHaveBeenCalledWith(
+        fakeAsset.cloudinaryPublicId,
+        expect.objectContaining({ effect: 'e_grayscale' }),
+      );
+      expect(mockFetch).toHaveBeenCalledWith(derivedUrl);
+      expect(mockCloudinaryService.uploadFile).toHaveBeenCalled();
+      expect(result).toEqual(fakeAsset);
+    });
+
+    it('throws UnprocessableEntityException when Cloudinary fetch fails', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 423 });
+
+      const dto: TransformAssetPayloadDto = { workspaceId: fakeWorkspaceId, grayscale: true };
+
+      await expect(service.transform(fakeAssetId, dto, fakeOrgId)).rejects.toThrow(
+        UnprocessableEntityException,
+      );
+    });
+
+    it('throws NotFoundEntityError when source asset not found', async () => {
+      assetModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+      const dto: TransformAssetPayloadDto = { workspaceId: fakeWorkspaceId };
+      await expect(service.transform('nonexistent', dto, fakeOrgId)).rejects.toThrow(
+        NotFoundEntityError,
+      );
     });
   });
 

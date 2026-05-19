@@ -8,6 +8,7 @@ import { Asset, AssetSchema } from './schemas/AssetSchema';
 import { AssetService } from './service/AssetService';
 import { AssetController } from './controller/AssetController';
 import { CaslModule } from '../casl/CaslModule';
+import { CloudinaryModule } from '../cloudinary/CloudinaryModule';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { CaslModule } from '../casl/CaslModule';
       { name: Asset.name, schema: AssetSchema },
     ]),
     CaslModule,
+    CloudinaryModule,
   ],
   providers: [AssetService],
   controllers: [AssetController],
