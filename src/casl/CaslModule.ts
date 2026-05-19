@@ -12,13 +12,13 @@ import {
   OrganizationMemberSchema,
 } from '../organizations/schemas/OrganizationMemberSchema';
 
+const OrganizationMemberMongooseModule = MongooseModule.forFeature([
+  { name: OrganizationMember.name, schema: OrganizationMemberSchema },
+]);
+
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: OrganizationMember.name, schema: OrganizationMemberSchema },
-    ]),
-  ],
+  imports: [OrganizationMemberMongooseModule],
   providers: [AbilityFactory, TenantGuard, PoliciesGuard],
-  exports: [AbilityFactory, TenantGuard, PoliciesGuard],
+  exports: [AbilityFactory, TenantGuard, PoliciesGuard, OrganizationMemberMongooseModule],
 })
 export class CaslModule {}

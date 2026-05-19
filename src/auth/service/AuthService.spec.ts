@@ -125,14 +125,11 @@ describe('AuthService', () => {
       const session = await service.signIn({
         email: 'test@example.com',
         password: 'plain',
-        group: Group.CLIENT_USER,
-        audience: 'aud',
       });
 
       // assert
       expect(mockUserService.findValidatedUser).toHaveBeenCalledWith({
         email: 'test@example.com',
-        group: Group.CLIENT_USER,
       });
       expect(bcrypt.compare).toHaveBeenCalledWith('plain', fakeUser.password);
       expect(mockJwtService.signAsync).toHaveBeenCalled();
@@ -150,14 +147,11 @@ describe('AuthService', () => {
         service.signIn({
           email: 'noone@example.com',
           password: 'x',
-          group: Group.CLIENT_USER,
-          audience: 'aud',
         }),
       ).rejects.toThrow(UnauthorizedException);
 
       expect(mockUserService.findValidatedUser).toHaveBeenCalledWith({
         email: 'noone@example.com',
-        group: Group.CLIENT_USER,
       });
     });
 
@@ -169,8 +163,6 @@ describe('AuthService', () => {
         service.signIn({
           email: 'test@example.com',
           password: 'wrong',
-          group: Group.CLIENT_USER,
-          audience: 'aud',
         }),
       ).rejects.toThrow(UnauthorizedException);
 
