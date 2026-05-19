@@ -1,3 +1,6 @@
+// ABOUTME: Authentication REST controller handling sign-in, sign-up, token operations, and org switching
+// ABOUTME: All endpoints versioned at v1; switch-organization requires a valid JWT
+
 import {
   Controller,
   Post,
@@ -5,10 +8,13 @@ import {
   Version,
   HttpCode,
   HttpStatus,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { AuthService } from '../service/AuthService';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiExtraModels,
@@ -17,6 +23,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTooManyRequestsResponse,
+  ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { JwtDto } from '../dto/JwtDto';
@@ -34,6 +41,9 @@ import { RecoverPasswordPayloadDto } from '../dto/RecoverPasswordPayloadDto';
 import { CompleteRecoverPasswordPayloadDto } from '../dto/CompleteRecoverPasswordPayloadDto';
 import { IsValidSmsCodeDto } from '../../sms-validation/dto/IsValidSmCodeDto';
 import { ValidateSmsRequestPayloadDto } from '../../sms-validation/dto/ValidateSmsRequestPayloadDto';
+import { SwitchOrganizationPayloadDto } from '../dto/SwitchOrganizationPayloadDto';
+import { JwtPayload } from '../interfaces/JwtPayload';
+import { JwtAuthGuard } from '../guard/JwtAuthGuard';
 
 @Controller('auth')
 export class AuthController {
@@ -291,5 +301,35 @@ export class AuthController {
     @Body() validateJwtPayloadDto: ValidateJwtPayloadDto,
   ): Promise<JwtDto> {
     return this.authService.validateJwt(validateJwtPayloadDto);
+  }
+
+  @Post('switch-organization')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    operationId: 'switchOrganization',
+    summary: 'Switch active organization and re-issue tokens',
+  })
+  @ApiOkResponse({
+    description: 'Returns new token pair for the switched organization',
+    type: RefreshTokenResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized or not a member of the requested organization',
+  })
+  @ApiBadRequestResponse({
+    description: 'Bad Request',
+  })
+  async switchOrganization(
+    @Request() req: { user: JwtPayload },
+    @Body() body: SwitchOrganizationPayloadDto,
+  ): Promise<RefreshTokenResponseDto> {
+    return this.authService.switchOrganization(
+      req.user.sub,
+      body.organizationId,
+      body.audience,
+    );
   }
 }

@@ -1,6 +1,7 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, Allow } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, Allow, IsOptional } from 'class-validator';
 import { UserDto } from '../../users/dto/UserDto';
+import { OrgSummaryDto } from './OrgSummaryDto';
 
 export class UserSessionDto {
   @ApiProperty({ type: UserDto, required: true })
@@ -24,4 +25,13 @@ export class UserSessionDto {
   @IsString()
   @Allow()
   refreshToken?: string;
+
+  @ApiPropertyOptional({ description: 'Active organization ID embedded in JWT (first org auto-selected)' })
+  @IsOptional()
+  @IsString()
+  organizationId?: string;
+
+  @ApiPropertyOptional({ type: [OrgSummaryDto], description: 'All organizations the user belongs to' })
+  @IsOptional()
+  organizations?: OrgSummaryDto[];
 }

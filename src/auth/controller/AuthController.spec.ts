@@ -1,4 +1,6 @@
-// auth.controller.spec.ts
+// ABOUTME: Unit tests for AuthController covering all endpoints including switch-organization
+// ABOUTME: Mocks AuthService and verifies correct delegation and response types
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, UnauthorizedException } from '@nestjs/common';
 
@@ -15,6 +17,9 @@ import { ValidateJwtPayloadDto } from '../dto/ValidateJwtPayloadDto';
 import { JwtPayloadDto } from '../dto/JwtPayloadDto';
 import { JwtHeaderDto } from '../dto/JwtHeaderDto';
 import { Group, Status } from '../../users/enum/UserEnum';
+import { SwitchOrganizationPayloadDto } from '../dto/SwitchOrganizationPayloadDto';
+import { JwtPayload } from '../interfaces/JwtPayload';
+import { OrgRole } from '../../shared/enum/OrgRole';
 
 describe('AuthController', () => {
   let app: INestApplication;
@@ -31,6 +36,7 @@ describe('AuthController', () => {
     confirmRecoverPassword: jest.fn(),
     refreshToken: jest.fn(),
     validateJwt: jest.fn(),
+    switchOrganization: jest.fn(),
   };
 
   // Example payloads / responses used in tests
@@ -78,6 +84,17 @@ describe('AuthController', () => {
     payload: { sub: 'user-1' } as JwtPayloadDto,
   };
 
+  const fakeJwtPayload: JwtPayload = {
+    sub: 'user-1',
+    organizationId: 'org-1',
+    orgRole: OrgRole.Member,
+    aud: 'aud',
+    iss: 'iss',
+    iat: 0,
+    exp: 9999999999,
+    jti: 'jti-1',
+  };
+
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -113,8 +130,7 @@ describe('AuthController', () => {
       const payload: SignInUserPayloadDto = {
         email: 'alice@example.com',
         password: 'plain',
-        audience: 'aud',
-      } as SignInUserPayloadDto;
+      };
 
       const res = await controller.signIn(payload);
       expect(mockAuthService.signIn).toHaveBeenCalledWith(payload);
@@ -133,8 +149,6 @@ describe('AuthController', () => {
         controller.signIn({
           email: 'x',
           password: 'y',
-          group: Group.CLIENT_USER,
-          audience: 'aud',
         }),
       ).rejects.toThrow(UnauthorizedException);
 
@@ -378,6 +392,63 @@ describe('AuthController', () => {
         }),
       ).rejects.toThrow(Error);
       expect(mockAuthService.validateJwt).toHaveBeenCalled();
+    });
+  });
+
+  /**
+   * switchOrganization
+   */
+  describe('switchOrganization', () => {
+    it('returns new tokens when switch succeeds', async () => {
+      mockAuthService.switchOrganization.mockResolvedValue(fakeRefreshResp);
+
+      const body: SwitchOrganizationPayloadDto = {
+        organizationId: '507f1f77bcf86cd799439011',
+      };
+      const req = { user: fakeJwtPayload };
+
+      const res = await controller.switchOrganization(req, body);
+
+      expect(mockAuthService.switchOrganization).toHaveBeenCalledWith(
+        fakeJwtPayload.sub,
+        body.organizationId,
+        undefined,
+      );
+      expect(res).toEqual(fakeRefreshResp);
+    });
+
+    it('passes audience when provided', async () => {
+      mockAuthService.switchOrganization.mockResolvedValue(fakeRefreshResp);
+
+      const body: SwitchOrganizationPayloadDto = {
+        organizationId: '507f1f77bcf86cd799439011',
+        audience: 'my-app',
+      };
+      const req = { user: fakeJwtPayload };
+
+      await controller.switchOrganization(req, body);
+
+      expect(mockAuthService.switchOrganization).toHaveBeenCalledWith(
+        fakeJwtPayload.sub,
+        body.organizationId,
+        'my-app',
+      );
+    });
+
+    it('propagates UnauthorizedException when user is not a member', async () => {
+      mockAuthService.switchOrganization.mockRejectedValue(
+        new UnauthorizedException('Not a member of this organization'),
+      );
+
+      const body: SwitchOrganizationPayloadDto = {
+        organizationId: '507f1f77bcf86cd799439011',
+      };
+      const req = { user: fakeJwtPayload };
+
+      await expect(controller.switchOrganization(req, body)).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockAuthService.switchOrganization).toHaveBeenCalled();
     });
   });
 });

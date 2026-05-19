@@ -41,7 +41,11 @@ async function bootstrap() {
     SwaggerModule.setup('api', app, documentFactory);
   }
 
-  await app.listen(configService.get<number>('PORT', 3000));
+  const port = configService.get<number>('PORT', 3000);
+  await app.listen(port);
+
+  // Extend HTTP server timeout to 90s to accommodate AI generation polling (up to 60s)
+  app.getHttpServer().setTimeout(90_000);
 }
 
 bootstrap()
