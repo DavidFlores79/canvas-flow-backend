@@ -1,3 +1,6 @@
+// ABOUTME: Authentication service handling sign-in, sign-up, token management, and org switching
+// ABOUTME: Integrates with UserService, SmsValidationService, and OrganizationMember for JWT issuance
+
 import {
   Injectable,
   Logger,
@@ -6,6 +9,8 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
 import { SignInUserPayloadDto } from '../dto/SignInUserPayloadDto';
 import { UserSessionDto } from '../dto/UserSessionDto';
 import { Gender, Group, Status } from '../../users/enum/UserEnum';
@@ -38,6 +43,11 @@ import { ResendSignUpCodePayloadDto } from '../../sms-validation/dto/ResendSignU
 import { CompleteRecoverPasswordPayloadDto } from '../dto/CompleteRecoverPasswordPayloadDto';
 import { IsValidSmsCodeDto } from '../../sms-validation/dto/IsValidSmCodeDto';
 import { ValidateSmsRequestPayloadDto } from '../../sms-validation/dto/ValidateSmsRequestPayloadDto';
+import {
+  OrganizationMember,
+  OrganizationMemberDocument,
+} from '../../organizations/schemas/OrganizationMemberSchema';
+import { OrgRole } from '../../shared/enum/OrgRole';
 
 @Injectable()
 export class AuthService {
@@ -50,6 +60,8 @@ export class AuthService {
     private smsValidationService: SmsValidationService,
     private readonly configService: ConfigService<EnvironmentVariables>,
     private readonly jwtService: JwtService,
+    @InjectModel(OrganizationMember.name)
+    private readonly orgMemberModel: Model<OrganizationMemberDocument>,
   ) {}
 
   async signIn(
@@ -396,6 +408,46 @@ export class AuthService {
     };
   }
 
+  async switchOrganization(
+    userId: string,
+    organizationId: string,
+    audience?: string,
+  ): Promise<RefreshTokenResponseDto> {
+    this.logger.debug('Switch organization attempt', { userId, organizationId });
+
+    const membership = await this.orgMemberModel
+      .findOne({
+        userId: new Types.ObjectId(userId),
+        organizationId: new Types.ObjectId(organizationId),
+      })
+      .lean()
+      .exec();
+
+    if (!membership) {
+      this.logger.warn('Switch organization failed: Not a member', {
+        userId,
+        organizationId,
+      });
+      throw new UnauthorizedException('Not a member of this organization');
+    }
+
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      this.logger.warn('Switch organization failed: User not found', { userId });
+      throw new UnauthorizedException('User not found');
+    }
+
+    const { accessToken, refreshToken } = await this.generateTokensForUser(
+      user,
+      audience,
+      membership as OrganizationMember,
+    );
+
+    this.logger.log(`Organization switched for user: ${userId} to org: ${organizationId}`);
+
+    return { accessToken, refreshToken };
+  }
+
   async validatePassword(
     id: string,
     validateUserPasswordPayloadDto: ValidateUserPasswordPayloadDto,
@@ -474,19 +526,28 @@ export class AuthService {
 
   /**
    * Generate access + refresh tokens for a user.
-   * - access token with short duration (15m)
-   * - refresh token with long duration (7d)
+   * - access token with short duration (30m)
+   * - refresh token with long duration (24h)
    * Returns { accessToken, refreshToken, kid }.
    * - kid/jti used here to identify the refresh token (rotation).
+   * - If orgMembership is provided, organizationId and orgRole are included in claims.
    */
-  private async generateTokensForUser(user: User, audience?: string) {
+  private async generateTokensForUser(
+    user: User,
+    audience?: string,
+    orgMembership?: OrganizationMember,
+  ) {
     const { issuer, secret } = this.getJwtConfig();
     const kid = randomUUID();
 
-    const claims = {
+    const claims: Record<string, unknown> = {
       sub: user.id,
-      group: user.group,
     };
+
+    if (orgMembership) {
+      claims['organizationId'] = orgMembership.organizationId.toString();
+      claims['orgRole'] = orgMembership.role as OrgRole;
+    }
 
     const accessToken = await this.jwtService.signAsync(claims, {
       issuer,

@@ -1,18 +1,27 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, Allow } from 'class-validator';
+// ABOUTME: DTO representing the decoded JWT payload for Swagger documentation
+// ABOUTME: Reflects the JwtPayload interface fields including org context
+
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsString, Allow } from 'class-validator';
 
 export class JwtPayloadDto {
   @ApiProperty({ type: String, required: true })
   @IsNotEmpty()
   @IsString()
   @Allow()
-  group: string;
+  sub: string;
 
-  @ApiProperty({ type: String, required: true })
-  @IsNotEmpty()
+  @ApiPropertyOptional({ type: String })
+  @IsOptional()
   @IsString()
   @Allow()
-  sub: string;
+  organizationId?: string;
+
+  @ApiPropertyOptional({ type: String })
+  @IsOptional()
+  @IsString()
+  @Allow()
+  orgRole?: string;
 
   @ApiProperty({ type: Number, required: true })
   @IsNotEmpty()

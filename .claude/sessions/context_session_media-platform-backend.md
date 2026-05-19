@@ -228,11 +228,103 @@ src/
 yarn add @casl/ability
 ```
 
-## Next Steps (Execution Phase)
-1. Execute `start-working-on-branch-new feat/media-platform-backend-core`
-2. Fix HttpExceptionFilter registration bug
-3. Implement Phase 0 (CaslModule + updated JWT)
-4. Implement Phase 1 (organizations + workspaces + seeds)
-5. Implement Phase 2 (projects + layers + assets)
-6. Implement Phase 3 (cloudinary + leonardo)
-7. Implement Phase 4 (async jobs)
+## Phase 0 Status: COMPLETED
+
+### What Was Implemented (Phase 0)
+
+**Branch:** `feat/media-platform-backend-core`
+
+**Build status:** Passes (`yarn build` clean)
+**Test status:** 125 tests passing across 9 test suites (all pass)
+
+#### Files Created:
+- `src/shared/enum/OrgRole.ts` — OrgRole enum (owner/admin/member)
+- `src/shared/enum/WorkspaceRole.ts` — WorkspaceRole enum (owner/editor/viewer)
+- `src/organizations/schemas/OrganizationMemberSchema.ts` — Mongoose schema placeholder (collection: `organization_members`)
+- `src/casl/interface/AuthContext.ts` — AuthContext interface
+- `src/casl/interface/PolicyHandler.ts` — PolicyHandler function type
+- `src/casl/decorator/CheckPolicies.ts` — @CheckPolicies decorator (uses `check_policies` metadata key)
+- `src/casl/factory/AbilityFactory.ts` — CASL rules engine (no DB queries, string-based subjects)
+- `src/casl/guard/TenantGuard.ts` — Validates org membership from JWT, attaches to `req.tenantContext`
+- `src/casl/guard/PoliciesGuard.ts` — Evaluates @CheckPolicies handlers via AbilityFactory
+- `src/casl/CaslModule.ts` — Module exporting AbilityFactory, TenantGuard, PoliciesGuard
+- `src/auth/guard/JwtAuthGuard.ts` — PassportJS JWT guard (`AuthGuard('jwt')`)
+- `src/auth/strategy/JwtStrategy.ts` — Passport JWT strategy (validates Bearer token, populates `req.user`)
+- `src/auth/dto/SwitchOrganizationPayloadDto.ts` — DTO for switch-organization endpoint
+
+#### Files Modified:
+- `src/auth/interfaces/JwtPayload.ts` — Added `organizationId`, `orgRole`, removed `group`; added `exp`, `jti`
+- `src/auth/dto/JwtPayloadDto.ts` — Aligned with new JwtPayload (added `organizationId`, `orgRole`, removed `group`)
+- `src/auth/service/AuthService.ts` — Added `switchOrganization()` method; updated `generateTokensForUser()` to accept optional `OrganizationMember`; injected `OrganizationMember` model
+- `src/auth/AuthModule.ts` — Added PassportModule, JwtStrategy, JwtAuthGuard, MongooseModule for OrganizationMember
+- `src/auth/controller/AuthController.ts` — Added `POST /auth/switch-organization` endpoint with `@UseGuards(JwtAuthGuard)`
+- `src/auth/service/AuthService.spec.ts` — Added orgMemberModel mock, added `switchOrganization` test cases
+- `src/auth/controller/AuthController.spec.ts` — Added `switchOrganization` test cases
+
+#### Tests Created:
+- `src/casl/factory/AbilityFactory.spec.ts` — 40 tests covering all role × action × resource combos
+- `src/casl/guard/TenantGuard.spec.ts` — Tests for happy path, missing context, no membership
+- `src/casl/guard/PoliciesGuard.spec.ts` — Tests for no handlers, passing, failing policies
+
+#### Key Architectural Notes:
+- `AbilityFactory` uses **string-based subjects** (`'Organization'`, `'Workspace'`, etc.) NOT class references — avoids circular import issues with CASL
+- `HttpExceptionFilter` was already registered as `APP_INTERCEPTOR` in `AppModule` (pre-existing bug was already fixed before this phase)
+- `@casl/ability` was already installed (v6.8.1)
+- `JwtPayload.group` field removed — old `JwtPayloadDto.group` field removed; Swagger updated
+- `generateTokensForUser` now includes `organizationId` + `orgRole` in JWT claims only when `orgMembership` is provided (backward compatible for sign-in without org context)
+
+## Phase 1 Status: COMPLETED
+
+### What Was Implemented (Phase 1)
+
+**Branch:** `feat/media-platform-backend-core`
+
+**Build status:** Passes (`yarn build` clean)
+**Test status:** 185 tests passing across 13 test suites (all pass — 60 new tests added)
+
+#### Files Created:
+
+**Organizations module:**
+- `src/organizations/schemas/OrganizationSchema.ts` — Mongoose schema (collection: `organizations`, timestamps via `created_at`/`updated_at`)
+- `src/organizations/dto/CreateOrganizationPayloadDto.ts` — name + slug validation
+- `src/organizations/dto/UpdateOrganizationPayloadDto.ts` — optional name/slug
+- `src/organizations/dto/OrganizationDto.ts` — response DTO
+- `src/organizations/dto/InviteMemberPayloadDto.ts` — userId (IsMongoId) + role (IsEnum OrgRole)
+- `src/organizations/dto/UpdateMemberRolePayloadDto.ts` — role only
+- `src/organizations/dto/OrganizationMemberDto.ts` — response DTO for membership
+- `src/organizations/service/OrganizationService.ts` — CRUD + member management (create, findById, update, delete, findMembers, inviteMember, updateMemberRole, removeMember)
+- `src/organizations/controller/OrganizationController.ts` — 8 REST endpoints with guards
+- `src/organizations/OrganizationsModule.ts` — MongooseModule (Organization + OrganizationMember) + CaslModule
+- `src/organizations/service/OrganizationService.spec.ts` — 16 unit tests
+- `src/organizations/controller/OrganizationController.spec.ts` — 16 unit tests (guards overridden with allowAllGuard)
+
+**Workspaces module:**
+- `src/workspaces/schemas/WorkspaceSchema.ts` — Mongoose schema (collection: `workspaces`, index on organizationId)
+- `src/workspaces/schemas/WorkspaceMemberSchema.ts` — Mongoose schema (collection: `workspace_members`, compound unique index {workspaceId,userId}, secondary index {userId,role})
+- `src/workspaces/dto/CreateWorkspacePayloadDto.ts` — name validation
+- `src/workspaces/dto/UpdateWorkspacePayloadDto.ts` — optional name
+- `src/workspaces/dto/WorkspaceDto.ts` — response DTO
+- `src/workspaces/dto/AddWorkspaceMemberPayloadDto.ts` — userId + role (WorkspaceRole)
+- `src/workspaces/dto/UpdateWorkspaceMemberRolePayloadDto.ts` — role only
+- `src/workspaces/dto/WorkspaceMemberDto.ts` — response DTO for membership
+- `src/workspaces/service/WorkspaceService.ts` — CRUD + member management (create, findAll, findById, update, delete, addMember, updateMemberRole, removeMember)
+- `src/workspaces/controller/WorkspaceController.ts` — 8 REST endpoints with guards
+- `src/workspaces/WorkspacesModule.ts` — MongooseModule (Workspace + WorkspaceMember) + CaslModule
+- `src/workspaces/service/WorkspaceService.spec.ts` — 14 unit tests
+- `src/workspaces/controller/WorkspaceController.spec.ts` — 14 unit tests (guards overridden)
+
+#### Files Modified:
+- `src/AppModule.ts` — Added OrganizationsModule and WorkspacesModule imports
+
+#### Key Architectural Notes:
+- Controller tests use `.overrideGuard(JwtAuthGuard/TenantGuard/PoliciesGuard).useValue({ canActivate: () => true })` — guards are tested separately in their own spec files
+- Service error tests for updateMemberRole/removeMember use `new Types.ObjectId().toString()` (valid 24-char hex) NOT plain strings — BSON rejects non-ObjectId strings before service logic runs
+- `mapToOrganizationDto` / `mapToWorkspaceDto` / `mapToMemberDto` are module-private helper functions in each controller — keeps DTO mapping out of the service layer
+- `WorkspaceService.findAll` queries workspace memberships first, then fetches workspaces — proper tenant isolation
+- Both modules export their service for use in future phases (projects, assets)
+- `create` in both services auto-creates the owner membership record after saving the entity
+
+## Next Steps (Remaining Phases)
+1. Implement Phase 2 (projects + layers + assets)
+2. Implement Phase 3 (cloudinary + leonardo)
+3. Implement Phase 4 (async jobs)
