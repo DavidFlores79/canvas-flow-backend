@@ -72,4 +72,19 @@ export class CloudinaryService {
   getTransformUrl(publicId: string, transformOptions: object): string {
     return cloudinary.url(publicId, { ...transformOptions, secure: true });
   }
+
+  async eagerTransformUrl(publicId: string, transformOptions: object): Promise<string> {
+    this.logger.log(`Eager-generating transform for: ${publicId}`);
+    const result = await cloudinary.uploader.explicit(publicId, {
+      type: 'upload',
+      eager: [transformOptions],
+      eager_async: false,
+    });
+    const eager = result?.eager?.[0];
+    if (!eager?.secure_url) {
+      throw new Error('Cloudinary eager transform returned no URL');
+    }
+    this.logger.log(`Eager transform ready: ${eager.secure_url}`);
+    return eager.secure_url;
+  }
 }
