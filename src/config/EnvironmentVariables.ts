@@ -15,4 +15,5 @@ export interface EnvironmentVariables {
   CLOUDINARY_API_SECRET: string;
   LEONARDO_API_KEY: string;
   LEONARDO_API_BASE_URL: string;
+  REMOVE_BG_API_KEY: string;
 }

@@ -3,6 +3,7 @@
 
 import { Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { ConfigService } from '@nestjs/config';
 import { Model, Types } from 'mongoose';
 
 import { Asset, AssetDocument } from '../schemas/AssetSchema';
@@ -12,16 +13,21 @@ import { UploadAssetPayloadDto } from '../dto/UploadAssetPayloadDto';
 import { TransformAssetPayloadDto } from '../dto/TransformAssetPayloadDto';
 import { NotFoundEntityError } from '../../shared/error/NotFoundEntityError';
 import { CloudinaryService } from '../../cloudinary/service/CloudinaryService';
+import { EnvironmentVariables } from '../../config/EnvironmentVariables';
 
 @Injectable()
 export class AssetService {
   private readonly logger = new Logger(AssetService.name);
+  private readonly removeBgApiKey: string;
 
   constructor(
     @InjectModel(Asset.name)
     private readonly assetModel: Model<AssetDocument>,
     private readonly cloudinaryService: CloudinaryService,
-  ) {}
+    private readonly configService: ConfigService<EnvironmentVariables>,
+  ) {
+    this.removeBgApiKey = this.configService.get('REMOVE_BG_API_KEY', { infer: true }) ?? '';
+  }
 
   async create(dto: CreateAssetPayloadDto, organizationId: string): Promise<Asset> {
     this.logger.log(`Creating asset "${dto.cloudinaryPublicId}" in org: ${organizationId}`);
@@ -74,26 +80,22 @@ export class AssetService {
       transformOptions,
     );
 
-    // background_removal is async on Cloudinary — use eager transform to pre-generate it
-    let fetchUrl: string;
+    let buffer: Buffer;
+    let ext: string;
+
     if (dto.removeBackground) {
-      fetchUrl = await this.cloudinaryService.eagerTransformUrl(
-        original.cloudinaryPublicId,
-        transformOptions,
-      );
+      buffer = await this.removeBackground(original.url);
+      ext = 'png';
     } else {
-      fetchUrl = derivedUrl;
+      this.logger.debug(`Fetching derived URL: ${derivedUrl}`);
+      const response = await fetch(derivedUrl);
+      if (!response.ok) {
+        this.logger.error(`Cloudinary transform fetch failed: ${response.status}`);
+        throw new UnprocessableEntityException('Cloudinary transform failed');
+      }
+      buffer = Buffer.from(await response.arrayBuffer());
+      ext = dto.format ?? 'png';
     }
-
-    this.logger.debug(`Fetching derived URL: ${fetchUrl}`);
-    const response = await fetch(fetchUrl);
-    if (!response.ok) {
-      this.logger.error(`Cloudinary transform fetch failed: ${response.status}`);
-      throw new UnprocessableEntityException('Cloudinary transform failed');
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-
-    const ext = dto.format ?? 'png';
     const uploaded = await this.cloudinaryService.uploadFile(
       { buffer, originalname: `transformed_${Date.now()}.${ext}`, mimetype: `image/${ext}` },
       `canvas-flow/${organizationId}/transforms`,
@@ -152,6 +154,29 @@ export class AssetService {
     this.logger.log(`Asset deleted successfully: ${id}`);
   }
 
+  private async removeBackground(imageUrl: string): Promise<Buffer> {
+    this.logger.log('Removing background via remove.bg');
+
+    const formData = new FormData();
+    formData.append('image_url', imageUrl);
+    formData.append('size', 'auto');
+
+    const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+      method: 'POST',
+      headers: { 'X-Api-Key': this.removeBgApiKey },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      this.logger.error(`remove.bg failed: ${response.status} ${err}`);
+      throw new UnprocessableEntityException('Background removal failed');
+    }
+
+    this.logger.log('Background removed successfully');
+    return Buffer.from(await response.arrayBuffer());
+  }
+
   private buildTransformOptions(dto: TransformAssetPayloadDto): object {
     const transformation: Record<string, unknown> = { quality: 'auto' };
 
@@ -159,7 +184,6 @@ export class AssetService {
     if (dto.height) transformation.height = dto.height;
     if (dto.width || dto.height) transformation.crop = dto.crop ?? 'fit';
     if (dto.format) transformation.fetch_format = dto.format;
-    if (dto.removeBackground) transformation.effect = 'background_removal';
     if (dto.grayscale) transformation.effect = 'grayscale';
     if (dto.brightness !== undefined) transformation.effect = `brightness:${dto.brightness}`;
     if (dto.contrast !== undefined) transformation.effect = `contrast:${dto.contrast}`;
