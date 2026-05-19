@@ -9,6 +9,8 @@ import { AssetController } from './AssetController';
 import { AssetService } from '../service/AssetService';
 import { NotFoundEntityError } from '../../shared/error/NotFoundEntityError';
 import { CreateAssetPayloadDto } from '../dto/CreateAssetPayloadDto';
+import { UploadAssetPayloadDto } from '../dto/UploadAssetPayloadDto';
+import { TransformAssetPayloadDto } from '../dto/TransformAssetPayloadDto';
 import { FilterAssetsQueryDto } from '../dto/FilterAssetsQueryDto';
 import { AssetDto } from '../dto/AssetDto';
 import { JwtAuthGuard } from '../../auth/guard/JwtAuthGuard';
@@ -45,6 +47,8 @@ describe('AssetController', () => {
 
   const mockService = {
     create: jest.fn(),
+    upload: jest.fn(),
+    transform: jest.fn(),
     findAll: jest.fn(),
     findById: jest.fn(),
     delete: jest.fn(),
@@ -70,6 +74,54 @@ describe('AssetController', () => {
 
   afterAll(async () => await app.close());
   beforeEach(() => jest.clearAllMocks());
+
+  describe('upload', () => {
+    const fakeFile = {
+      buffer: Buffer.from('fake'),
+      originalname: 'photo.jpg',
+      mimetype: 'image/jpeg',
+    } as Express.Multer.File;
+
+    it('returns AssetDto after uploading file', async () => {
+      mockService.upload.mockResolvedValue(fakeAsset);
+      const dto: UploadAssetPayloadDto = { workspaceId: fakeWorkspaceId };
+
+      const result = await controller.upload(fakeFile, dto, mockRequest);
+
+      expect(result).toBeInstanceOf(AssetDto);
+      expect(mockService.upload).toHaveBeenCalledWith(fakeFile, dto, fakeOrgId);
+    });
+
+    it('propagates errors from service', async () => {
+      mockService.upload.mockRejectedValue(new Error('upload failed'));
+      const dto: UploadAssetPayloadDto = { workspaceId: fakeWorkspaceId };
+
+      await expect(controller.upload(fakeFile, dto, mockRequest)).rejects.toThrow('upload failed');
+    });
+  });
+
+  describe('transform', () => {
+    it('returns new AssetDto after transformation', async () => {
+      mockService.transform.mockResolvedValue(fakeAsset);
+      const dto: TransformAssetPayloadDto = { workspaceId: fakeWorkspaceId, grayscale: true };
+
+      const result = await controller.transform(fakeAssetId, dto, mockRequest);
+
+      expect(result).toBeInstanceOf(AssetDto);
+      expect(mockService.transform).toHaveBeenCalledWith(fakeAssetId, dto, fakeOrgId);
+    });
+
+    it('propagates NotFoundEntityError when source asset missing', async () => {
+      mockService.transform.mockRejectedValue(
+        new NotFoundEntityError('not found', 'Asset', '404'),
+      );
+      const dto: TransformAssetPayloadDto = { workspaceId: fakeWorkspaceId };
+
+      await expect(controller.transform('bad-id', dto, mockRequest)).rejects.toThrow(
+        NotFoundEntityError,
+      );
+    });
+  });
 
   describe('create', () => {
     it('returns AssetDto on success', async () => {

@@ -54,13 +54,20 @@ describe('AuthService', () => {
     verifyAsync: jest.fn(),
   };
 
+  const mockOrgMemberFindChain = {
+    sort: jest.fn().mockReturnThis(),
+    lean: jest.fn().mockReturnThis(),
+    exec: jest.fn(),
+  };
+
   const mockOrgMemberModel = {
     findOne: jest.fn(),
+    find: jest.fn().mockReturnValue(mockOrgMemberFindChain),
   };
 
   // Common fake user used across tests
   const fakeUser: Partial<User> = {
-    id: randomUUID(),
+    id: new Types.ObjectId().toHexString(),
     firstName: 'Test',
     lastName: 'User',
     email: 'test@example.com',
@@ -112,12 +119,20 @@ describe('AuthService', () => {
    * signIn
    */
   describe('signIn', () => {
-    it('should sign in successfully and return UserSessionDto with tokens', async () => {
+    const fakeMembership = {
+      organizationId: new Types.ObjectId(),
+      userId: new Types.ObjectId(),
+      role: OrgRole.Owner,
+    };
+
+    beforeEach(() => {
+      mockOrgMemberFindChain.exec.mockResolvedValue([fakeMembership]);
+    });
+
+    it('should sign in successfully and return UserSessionDto with tokens and org context', async () => {
       // arrange
       mockUserService.findValidatedUser.mockResolvedValue(fakeUser);
-      // bcrypt.compare should resolve true to simulate valid password
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      // jwtService.signAsync returns access and refresh tokens
       mockJwtService.signAsync.mockResolvedValueOnce('access-token');
       mockJwtService.signAsync.mockResolvedValueOnce('refresh-token');
 
@@ -138,6 +153,25 @@ describe('AuthService', () => {
       expect(session).toHaveProperty('kid');
       expect(session).toHaveProperty('user');
       expect(session.user?.email).toEqual(fakeUser.email);
+      expect(session.organizationId).toBe(fakeMembership.organizationId.toString());
+      expect(session.organizations).toHaveLength(1);
+      expect(session.organizations?.[0].role).toBe(OrgRole.Owner);
+    });
+
+    it('should sign in with no org context when user has no memberships', async () => {
+      mockUserService.findValidatedUser.mockResolvedValue(fakeUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockJwtService.signAsync.mockResolvedValueOnce('access-token');
+      mockJwtService.signAsync.mockResolvedValueOnce('refresh-token');
+      mockOrgMemberFindChain.exec.mockResolvedValue([]);
+
+      const session = await service.signIn({
+        email: 'test@example.com',
+        password: 'plain',
+      });
+
+      expect(session.organizationId).toBeUndefined();
+      expect(session.organizations).toHaveLength(0);
     });
 
     it('should throw UnauthorizedException when user not found', async () => {
