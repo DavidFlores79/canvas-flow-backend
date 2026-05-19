@@ -13,6 +13,7 @@ import {
   HttpStatus,
   UseGuards,
   Request,
+  Version,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -74,6 +75,7 @@ export class OrganizationController {
   constructor(private readonly organizationService: OrganizationService) {}
 
   @Post()
+  @Version('1')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ operationId: 'createOrganization', summary: 'Create a new organization' })
@@ -89,6 +91,7 @@ export class OrganizationController {
   }
 
   @Get(':id')
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiOperation({ operationId: 'getOrganizationById', summary: 'Get organization by ID' })
@@ -100,6 +103,7 @@ export class OrganizationController {
   }
 
   @Patch(':id')
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('update', 'Organization'))
@@ -115,6 +119,7 @@ export class OrganizationController {
   }
 
   @Delete(':id')
+  @Version('1')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('delete', 'Organization'))
@@ -126,6 +131,7 @@ export class OrganizationController {
   }
 
   @Get(':id/members')
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiOperation({ operationId: 'getOrganizationMembers', summary: 'Get organization members' })
@@ -136,6 +142,7 @@ export class OrganizationController {
   }
 
   @Post(':id/members')
+  @Version('1')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('invite', 'Organization'))
@@ -151,6 +158,7 @@ export class OrganizationController {
   }
 
   @Patch(':id/members/:userId')
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('invite', 'Organization'))
@@ -167,6 +175,7 @@ export class OrganizationController {
   }
 
   @Delete(':id/members/:userId')
+  @Version('1')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('invite', 'Organization'))

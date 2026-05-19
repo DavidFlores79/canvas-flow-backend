@@ -15,6 +15,7 @@ import {
   Request,
   UseInterceptors,
   UploadedFile,
+  Version,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -68,6 +69,7 @@ export class AssetController {
   constructor(private readonly assetService: AssetService) {}
 
   @Post('upload')
+  @Version('1')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('create', 'Asset'))
@@ -97,6 +99,7 @@ export class AssetController {
   }
 
   @Post(':id/transform')
+  @Version('1')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('create', 'Asset'))
@@ -113,6 +116,7 @@ export class AssetController {
   }
 
   @Post()
+  @Version('1')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('create', 'Asset'))
@@ -128,6 +132,7 @@ export class AssetController {
   }
 
   @Get()
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiOperation({ operationId: 'getAssets', summary: 'List assets for the active organization' })
@@ -141,6 +146,7 @@ export class AssetController {
   }
 
   @Get(':id')
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiOperation({ operationId: 'getAssetById', summary: 'Get an asset by ID' })
@@ -152,6 +158,7 @@ export class AssetController {
   }
 
   @Delete(':id')
+  @Version('1')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('delete', 'Asset'))
