@@ -74,8 +74,19 @@ export class AssetService {
       transformOptions,
     );
 
-    this.logger.debug(`Fetching derived URL: ${derivedUrl}`);
-    const response = await fetch(derivedUrl);
+    // background_removal is async on Cloudinary — use eager transform to pre-generate it
+    let fetchUrl: string;
+    if (dto.removeBackground) {
+      fetchUrl = await this.cloudinaryService.eagerTransformUrl(
+        original.cloudinaryPublicId,
+        transformOptions,
+      );
+    } else {
+      fetchUrl = derivedUrl;
+    }
+
+    this.logger.debug(`Fetching derived URL: ${fetchUrl}`);
+    const response = await fetch(fetchUrl);
     if (!response.ok) {
       this.logger.error(`Cloudinary transform fetch failed: ${response.status}`);
       throw new UnprocessableEntityException('Cloudinary transform failed');
@@ -142,20 +153,18 @@ export class AssetService {
   }
 
   private buildTransformOptions(dto: TransformAssetPayloadDto): object {
-    const effects: string[] = [];
-    if (dto.removeBackground) effects.push('e_background_removal');
-    if (dto.grayscale) effects.push('e_grayscale');
-    if (dto.brightness !== undefined) effects.push(`e_brightness:${dto.brightness}`);
-    if (dto.contrast !== undefined) effects.push(`e_contrast:${dto.contrast}`);
-    if (dto.blur !== undefined) effects.push(`e_blur:${dto.blur}`);
+    const transformation: Record<string, unknown> = { quality: 'auto' };
 
-    return {
-      ...(dto.width && { width: dto.width }),
-      ...(dto.height && { height: dto.height }),
-      ...(dto.crop && { crop: dto.crop }),
-      ...(dto.format && { fetch_format: dto.format }),
-      ...(effects.length && { effect: effects.join(',') }),
-      quality: 'auto',
-    };
+    if (dto.width) transformation.width = dto.width;
+    if (dto.height) transformation.height = dto.height;
+    if (dto.width || dto.height) transformation.crop = dto.crop ?? 'fit';
+    if (dto.format) transformation.fetch_format = dto.format;
+    if (dto.removeBackground) transformation.effect = 'background_removal';
+    if (dto.grayscale) transformation.effect = 'grayscale';
+    if (dto.brightness !== undefined) transformation.effect = `brightness:${dto.brightness}`;
+    if (dto.contrast !== undefined) transformation.effect = `contrast:${dto.contrast}`;
+    if (dto.blur !== undefined) transformation.effect = `blur:${dto.blur}`;
+
+    return transformation;
   }
 }
