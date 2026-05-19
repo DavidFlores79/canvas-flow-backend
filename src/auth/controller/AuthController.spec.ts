@@ -130,8 +130,7 @@ describe('AuthController', () => {
       const payload: SignInUserPayloadDto = {
         email: 'alice@example.com',
         password: 'plain',
-        audience: 'aud',
-      } as SignInUserPayloadDto;
+      };
 
       const res = await controller.signIn(payload);
       expect(mockAuthService.signIn).toHaveBeenCalledWith(payload);
@@ -150,8 +149,6 @@ describe('AuthController', () => {
         controller.signIn({
           email: 'x',
           password: 'y',
-          group: Group.CLIENT_USER,
-          audience: 'aud',
         }),
       ).rejects.toThrow(UnauthorizedException);
 

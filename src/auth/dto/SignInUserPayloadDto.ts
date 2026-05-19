@@ -1,11 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Group } from '../../users/enum/UserEnum';
 import {
   IsNotEmpty,
   IsString,
   Allow,
   IsEmail,
-  IsEnum,
   IsPhoneNumber,
   IsOptional,
   ValidateIf,
@@ -25,21 +23,9 @@ export class SignInUserPayloadDto {
   @Allow()
   phone?: string;
 
-  @ApiProperty({ type: String, enum: Group, required: true })
-  @IsEnum(Group)
-  @IsNotEmpty()
-  @Allow()
-  group: string;
-
   @ApiProperty({ type: String, required: false })
   @IsOptional()
   @IsString()
   @Allow()
   password?: string;
-
-  @ApiProperty({ type: String, required: true })
-  @IsNotEmpty()
-  @IsString()
-  @Allow()
-  audience: string;
 }

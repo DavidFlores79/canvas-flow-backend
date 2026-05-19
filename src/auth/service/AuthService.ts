@@ -72,11 +72,15 @@ export class AuthService {
       phone: signInUserPayloadDto.phone,
     });
 
-    const { audience, password, ...query } = signInUserPayloadDto;
+    const { password, email, phone } = signInUserPayloadDto;
 
-    const user = await this.userService.findValidatedUser({ ...query });
+    const lookup: Partial<Pick<User, 'email' | 'phone'>> = {};
+    if (email) lookup.email = email;
+    if (phone) lookup.phone = phone;
+
+    const user = await this.userService.findValidatedUser(lookup);
     if (!user) {
-      this.logger.warn('Sign-in failed: User not found', query);
+      this.logger.warn('Sign-in failed: User not found', lookup);
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -93,10 +97,7 @@ export class AuthService {
       }
     }
 
-    const { accessToken, refreshToken, kid } = await this.generateTokensForUser(
-      user,
-      audience,
-    );
+    const { accessToken, refreshToken, kid } = await this.generateTokensForUser(user);
 
     this.logger.log(`User signed in successfully: ${user.id}`);
 
@@ -549,26 +550,17 @@ export class AuthService {
       claims['orgRole'] = orgMembership.role as OrgRole;
     }
 
-    const accessToken = await this.jwtService.signAsync(claims, {
-      issuer,
-      audience,
-      keyid: kid,
-      secret,
-      expiresIn: this.accessTokenExpiry,
-    });
+    const tokenOptions: Record<string, unknown> = { issuer, keyid: kid, secret, expiresIn: this.accessTokenExpiry };
+    if (audience) tokenOptions['audience'] = audience;
 
-    const refreshClaims = {
-      ...claims,
-      jti: kid,
-    };
+    const accessToken = await this.jwtService.signAsync(claims, tokenOptions as Parameters<typeof this.jwtService.signAsync>[1]);
+
+    const refreshClaims = { ...claims, jti: kid };
 
     const refreshToken = await this.jwtService.signAsync(refreshClaims, {
-      issuer,
-      audience,
-      keyid: kid,
-      secret,
+      ...tokenOptions,
       expiresIn: this.refreshTokenExpiry,
-    });
+    } as Parameters<typeof this.jwtService.signAsync>[1]);
 
     return {
       accessToken,
