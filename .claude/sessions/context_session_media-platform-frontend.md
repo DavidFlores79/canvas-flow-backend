@@ -13,8 +13,40 @@ Build a Canva-like web editor interface using Angular 20, capable of complex lay
 ## Multi-Tenant Auth Context
 The frontend must manage the active organization context from the JWT:
 - JWT contains: `sub`, `organizationId`, `orgRole` (owner|admin|member)
+- **Sign-in response** now includes `organizationId` (auto-selected first org) AND `organizations[]` (all orgs) — frontend must store both and show org switcher if `organizations.length > 1`
 - **Org switching**: call `POST /auth/switch-organization`, store new tokens, reload context
 - **Role-gated UI**: show/hide controls based on `orgRole` and `workspaceRole`
+
+## IMPORTANT: Corrected API Contract (Phase 5 backend fixes)
+
+### Sign-in response shape
+```typescript
+interface UserSessionDto {
+  user: UserDto;
+  kid: string;
+  jwt: string;
+  refreshToken?: string;
+  organizationId?: string;       // active org embedded in JWT (first org)
+  organizations?: OrgSummaryDto[]; // all orgs user belongs to
+}
+interface OrgSummaryDto { id: string; role: string; }
+```
+
+### File uploads — use backend endpoint, NOT Cloudinary widget
+All file uploads go through the backend, never directly to Cloudinary:
+- `POST /assets/upload` — `multipart/form-data` with `file` + `workspaceId` fields
+- Backend uploads to Cloudinary and returns `AssetDto` with stable URL
+- Do NOT use Cloudinary Upload Widget or direct SDK — API credentials are server-side only
+
+### Image transformations — backend endpoint
+- `POST /assets/:id/transform` — body: `TransformAssetPayloadDto`
+- Returns new `AssetDto` (original preserved)
+- Supported: `removeBackground`, `width/height/crop`, `brightness/contrast/grayscale/blur`, `format`
+
+### AI image generation — backend endpoint
+- `POST /ai/generate` — body: `{ prompt, modelId, workspaceId, width?, height?, numImages? }`
+- Synchronous — server polls Leonardo (up to 60s), returns array of `AssetDto`
+- Frontend should show a loading state for up to 60s
 
 ## Complete Implementation Roadmap
 
@@ -56,14 +88,16 @@ The frontend must manage the active organization context from the JWT:
 
 ### Phase 5: API Integration
 - Data Layer services call NestJS backend:
+  - `AuthApiService` — sign-in, refresh, switch-organization
   - `OrganizationApiService`
   - `WorkspaceApiService`
   - `ProjectApiService`
   - `LayerApiService`
-  - `AssetApiService`
-  - `LeonardoApiService`
-- Cloudinary upload widget integration
+  - `AssetApiService` — includes upload (multipart) and transform endpoints
+  - `AiApiService` — `POST /ai/generate` with 60s timeout
+- **NO Cloudinary upload widget** — all uploads go through `POST /assets/upload` on the backend
 - HTTP interceptor: attach `Authorization: Bearer <token>` header
+- Sign-in flow: store `organizationId` + `organizations[]` from response; if `organizations.length > 1`, show org selector before redirecting to dashboard
 
 ## Branch Strategy
 - **Feature Branch:** `feat/media-platform-frontend-core`
