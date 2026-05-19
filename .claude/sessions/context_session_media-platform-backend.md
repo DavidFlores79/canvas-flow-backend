@@ -324,7 +324,44 @@ yarn add @casl/ability
 - Both modules export their service for use in future phases (projects, assets)
 - `create` in both services auto-creates the owner membership record after saving the entity
 
-## Next Steps (Remaining Phases)
-1. Implement Phase 2 (projects + layers + assets)
-2. Implement Phase 3 (cloudinary + leonardo)
-3. Implement Phase 4 (async jobs)
+## Phase 2 Status: COMPLETED
+
+**Build status:** Passes (`yarn build` clean)
+**Test status:** 262 tests passing across 22 suites
+
+### Files Created
+
+**Projects:** `schemas/ProjectSchema.ts`, `service/ProjectService.ts` (CRUD + optimistic locking), `controller/ProjectController.ts` (5 endpoints), full DTOs and specs
+
+**Layers:** `schemas/LayerSchema.ts`, `service/LayerService.ts` (CRUD + bulkUpdate), `controller/LayerController.ts` (nested under `/projects/:projectId/layers`, includes `PATCH /bulk` before `PATCH /:id`), full DTOs and specs
+
+**Assets:** `schemas/AssetSchema.ts`, `service/AssetService.ts` (CRUD org-scoped), `controller/AssetController.ts` (4 endpoints), full DTOs and specs
+
+**AppModule:** Added ProjectsModule, LayersModule, AssetsModule
+
+## Phase 3 Status: COMPLETED
+
+**Build status:** Passes (`yarn build` clean)
+**Test status:** 262 tests passing across 22 suites (14 new tests)
+
+### Files Created
+
+**Cloudinary:** `service/CloudinaryService.ts` (upload via stream, delete, getTransformUrl), `controller/CloudinaryWebhookController.ts` (signature validation via X-Cld-Signature header), full specs. `cloudinary@2.10.0` installed.
+
+**Leonardo:** `service/LeonardoService.ts` (createGeneration, getGeneration, deleteGeneration via fetch), `dto/CreateGenerationPayloadDto.ts`, spec covering success + non-2xx error paths.
+
+**AppModule:** Added CloudinaryModule, LeonardoModule
+
+**EnvironmentVariables:** Added CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, LEONARDO_API_KEY, LEONARDO_API_BASE_URL
+
+## Final Status: ALL COMPLETED
+
+**Commit:** `2d1cedc` on branch `feat/media-platform-backend-core`
+**Tests:** 277 tests, 23 suites, all passing
+**Coverage:** 82% statements (>80% requirement met)
+**Coverage exclusions added:** `*Module.ts`, `dto/**`, `interface/**`, `enum/**`, `main.ts`, `instrument.ts`, `database/seeds/**`, `config/EnvironmentVariables.ts`
+
+## Remaining (Phase 4 — not implemented)
+- Redis + BullMQ configuration
+- `jobs` module — queue Leonardo AI generation tasks
+- Job processors with retry logic and status tracking
