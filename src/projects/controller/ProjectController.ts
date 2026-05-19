@@ -14,6 +14,7 @@ import {
   HttpStatus,
   UseGuards,
   Request,
+  Version,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -65,6 +66,7 @@ export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
 
   @Post()
+  @Version('1')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('create', 'Project'))
@@ -80,6 +82,7 @@ export class ProjectController {
   }
 
   @Get()
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiOperation({ operationId: 'getProjects', summary: 'List projects in a workspace' })
@@ -90,6 +93,7 @@ export class ProjectController {
   }
 
   @Get(':id')
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiOperation({ operationId: 'getProjectById', summary: 'Get a project by ID' })
@@ -101,6 +105,7 @@ export class ProjectController {
   }
 
   @Patch(':id')
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('update', 'Project'))
@@ -117,6 +122,7 @@ export class ProjectController {
   }
 
   @Delete(':id')
+  @Version('1')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('delete', 'Project'))

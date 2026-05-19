@@ -13,6 +13,7 @@ import {
   HttpStatus,
   UseGuards,
   Request,
+  Version,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -61,6 +62,7 @@ export class LayerController {
   constructor(private readonly layerService: LayerService) {}
 
   @Post()
+  @Version('1')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('create', 'Layer'))
@@ -77,6 +79,7 @@ export class LayerController {
   }
 
   @Get()
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiOperation({ operationId: 'getLayers', summary: 'List all layers in a project' })
@@ -87,6 +90,7 @@ export class LayerController {
   }
 
   @Patch('bulk')
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('update', 'Layer'))
@@ -102,6 +106,7 @@ export class LayerController {
   }
 
   @Patch(':id')
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('update', 'Layer'))
@@ -117,6 +122,7 @@ export class LayerController {
   }
 
   @Delete(':id')
+  @Version('1')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('delete', 'Layer'))

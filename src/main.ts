@@ -17,6 +17,13 @@ async function bootstrap() {
   const isNotProduction =
     configService.get('DEPLOY_ENV', { infer: true }) !== 'production';
 
+  app.enableCors({
+    origin: ['http://localhost:4200'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  });
+
   app.enableVersioning({
     type: VersioningType.URI,
   });
