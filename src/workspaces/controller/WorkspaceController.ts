@@ -13,6 +13,7 @@ import {
   HttpStatus,
   UseGuards,
   Request,
+  Version,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -84,6 +85,7 @@ export class WorkspaceController {
   constructor(private readonly workspaceService: WorkspaceService) {}
 
   @Post()
+  @Version('1')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('create', 'Workspace'))
@@ -103,6 +105,7 @@ export class WorkspaceController {
   }
 
   @Get()
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiOperation({ operationId: 'findAllWorkspaces', summary: 'Get workspaces for current user in org' })
@@ -116,6 +119,7 @@ export class WorkspaceController {
   }
 
   @Get(':id')
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiOperation({ operationId: 'getWorkspaceById', summary: 'Get workspace by ID' })
@@ -127,6 +131,7 @@ export class WorkspaceController {
   }
 
   @Patch(':id')
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('update', 'Workspace'))
@@ -142,6 +147,7 @@ export class WorkspaceController {
   }
 
   @Delete(':id')
+  @Version('1')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('delete', 'Workspace'))
@@ -153,6 +159,7 @@ export class WorkspaceController {
   }
 
   @Post(':id/members')
+  @Version('1')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('invite', 'Organization'))
@@ -168,6 +175,7 @@ export class WorkspaceController {
   }
 
   @Patch(':id/members/:userId')
+  @Version('1')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('invite', 'Organization'))
@@ -184,6 +192,7 @@ export class WorkspaceController {
   }
 
   @Delete(':id/members/:userId')
+  @Version('1')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, TenantGuard, PoliciesGuard)
   @CheckPolicies((a: AppAbility) => a.can('invite', 'Organization'))
