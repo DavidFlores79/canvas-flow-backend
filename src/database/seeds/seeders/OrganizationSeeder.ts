@@ -37,6 +37,12 @@ export class OrganizationSeeder {
       users.luxfreeUser._id as Types.ObjectId,
     );
 
+    // Also add paisamexUser as a member of Luxfree so the account belongs to both orgs
+    await this.seedMembership(
+      luxfreeOrg._id as Types.ObjectId,
+      users.paisamexUser._id as Types.ObjectId,
+    );
+
     return { paisamexOrg, luxfreeOrg };
   }
 
