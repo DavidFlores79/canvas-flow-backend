@@ -9,6 +9,7 @@ export class LayerDto {
   @ApiProperty() organizationId: string;
   @ApiPropertyOptional() assetId?: string;
   @ApiProperty() type: string;
+  @ApiPropertyOptional() content?: string;
   @ApiPropertyOptional() properties?: Record<string, unknown>;
   @ApiPropertyOptional() createdAt: Date;
   @ApiPropertyOptional() updatedAt: Date;

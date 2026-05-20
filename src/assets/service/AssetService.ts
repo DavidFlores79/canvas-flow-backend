@@ -81,11 +81,30 @@ export class AssetService {
     );
 
     let buffer: Buffer;
-    let ext: string;
+    const ext = dto.format ?? 'png';
 
     if (dto.removeBackground) {
-      buffer = await this.removeBackground(original.url);
-      ext = 'png';
+      // Remove background first, upload to a temp location, then apply remaining transforms
+      const bgRemovedBuffer = await this.removeBackground(original.url);
+      const tempUploaded = await this.cloudinaryService.uploadFile(
+        { buffer: bgRemovedBuffer, originalname: `temp_${Date.now()}.png`, mimetype: 'image/png' },
+        `canvas-flow/${organizationId}/transforms/tmp`,
+      );
+
+      const hasOtherTransforms = dto.grayscale || dto.brightness !== undefined || dto.contrast !== undefined || dto.blur !== undefined || dto.width || dto.height || dto.format;
+      if (hasOtherTransforms) {
+        const chainedUrl = this.cloudinaryService.getTransformUrl(tempUploaded.publicId, transformOptions);
+        this.logger.debug(`Fetching chained transform after bg removal: ${chainedUrl}`);
+        const response = await fetch(chainedUrl);
+        if (!response.ok) {
+          throw new UnprocessableEntityException('Cloudinary transform failed after background removal');
+        }
+        buffer = Buffer.from(await response.arrayBuffer());
+        await this.cloudinaryService.deleteFile(tempUploaded.publicId);
+      } else {
+        buffer = bgRemovedBuffer;
+        await this.cloudinaryService.deleteFile(tempUploaded.publicId);
+      }
     } else {
       this.logger.debug(`Fetching derived URL: ${derivedUrl}`);
       const response = await fetch(derivedUrl);
@@ -94,7 +113,6 @@ export class AssetService {
         throw new UnprocessableEntityException('Cloudinary transform failed');
       }
       buffer = Buffer.from(await response.arrayBuffer());
-      ext = dto.format ?? 'png';
     }
     const uploaded = await this.cloudinaryService.uploadFile(
       { buffer, originalname: `transformed_${Date.now()}.${ext}`, mimetype: `image/${ext}` },
@@ -178,17 +196,20 @@ export class AssetService {
   }
 
   private buildTransformOptions(dto: TransformAssetPayloadDto): object {
-    const transformation: Record<string, unknown> = { quality: 'auto' };
+    const chain: Record<string, unknown>[] = [];
 
-    if (dto.width) transformation.width = dto.width;
-    if (dto.height) transformation.height = dto.height;
-    if (dto.width || dto.height) transformation.crop = dto.crop ?? 'fit';
-    if (dto.format) transformation.fetch_format = dto.format;
-    if (dto.grayscale) transformation.effect = 'grayscale';
-    if (dto.brightness !== undefined) transformation.effect = `brightness:${dto.brightness}`;
-    if (dto.contrast !== undefined) transformation.effect = `contrast:${dto.contrast}`;
-    if (dto.blur !== undefined) transformation.effect = `blur:${dto.blur}`;
+    const base: Record<string, unknown> = { quality: 'auto' };
+    if (dto.width) base.width = dto.width;
+    if (dto.height) base.height = dto.height;
+    if (dto.width || dto.height) base.crop = dto.crop ?? 'fit';
+    if (dto.format) base.fetch_format = dto.format;
+    chain.push(base);
 
-    return transformation;
+    if (dto.grayscale) chain.push({ effect: 'grayscale' });
+    if (dto.brightness !== undefined) chain.push({ effect: `brightness:${dto.brightness}` });
+    if (dto.contrast !== undefined) chain.push({ effect: `contrast:${dto.contrast}` });
+    if (dto.blur !== undefined) chain.push({ effect: `blur:${dto.blur}` });
+
+    return { transformation: chain };
   }
 }
