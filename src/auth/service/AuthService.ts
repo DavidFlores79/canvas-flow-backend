@@ -47,6 +47,10 @@ import {
   OrganizationMember,
   OrganizationMemberDocument,
 } from '../../organizations/schemas/OrganizationMemberSchema';
+import {
+  Organization,
+  OrganizationDocument,
+} from '../../organizations/schemas/OrganizationSchema';
 import { OrgRole } from '../../shared/enum/OrgRole';
 import {
   RefreshSession,
@@ -68,6 +72,8 @@ export class AuthService {
     private readonly orgMemberModel: Model<OrganizationMemberDocument>,
     @InjectModel(RefreshSession.name)
     private readonly refreshSessionModel: Model<RefreshSessionDocument>,
+    @InjectModel(Organization.name)
+    private readonly organizationModel: Model<OrganizationDocument>,
   ) {}
 
   async signIn(
@@ -125,8 +131,16 @@ export class AuthService {
     userSession.jwt = accessToken;
     userSession.refreshToken = refreshToken;
     userSession.organizationId = firstMembership?.organizationId?.toString();
+    const orgIds = memberships.map((m) => m.organizationId);
+    const orgs = await this.organizationModel
+      .find({ _id: { $in: orgIds } })
+      .lean()
+      .exec();
+    const orgNameMap = new Map(orgs.map((o) => [o._id.toString(), o.name]));
+
     userSession.organizations = memberships.map((m) => ({
       id: m.organizationId.toString(),
+      name: orgNameMap.get(m.organizationId.toString()) ?? '',
       role: m.role,
     }));
 
