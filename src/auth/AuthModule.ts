@@ -18,6 +18,10 @@ import {
   OrganizationMember,
   OrganizationMemberSchema,
 } from '../organizations/schemas/OrganizationMemberSchema';
+import {
+  RefreshSession,
+  RefreshSessionSchema,
+} from './schemas/RefreshSessionSchema';
 
 @Module({
   imports: [
@@ -26,6 +30,7 @@ import {
     PassportModule,
     MongooseModule.forFeature([
       { name: OrganizationMember.name, schema: OrganizationMemberSchema },
+      { name: RefreshSession.name, schema: RefreshSessionSchema },
     ]),
     JwtModule.registerAsync({
       useFactory: (configService: ConfigService<EnvironmentVariables>) => ({

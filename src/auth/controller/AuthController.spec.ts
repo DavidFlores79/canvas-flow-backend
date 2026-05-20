@@ -344,7 +344,6 @@ describe('AuthController', () => {
 
       const payload: RefreshTokenPayloadDto = {
         refreshToken: 'rtok',
-        audience: 'aud',
       } as RefreshTokenPayloadDto;
 
       const res = await controller.refreshToken(payload);
@@ -359,7 +358,6 @@ describe('AuthController', () => {
       await expect(
         controller.refreshToken({
           refreshToken: 'invalid-token',
-          audience: 'aud',
         }),
       ).rejects.toThrow(UnauthorizedException);
       expect(mockAuthService.refreshToken).toHaveBeenCalled();
