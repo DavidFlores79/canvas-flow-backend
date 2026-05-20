@@ -11,6 +11,7 @@ import { UpdateProjectPayloadDto } from '../dto/UpdateProjectPayloadDto';
 import { FilterProjectsQueryDto } from '../dto/FilterProjectsQueryDto';
 import { NotFoundEntityError } from '../../shared/error/NotFoundEntityError';
 import { OutdatedEntityVersionError } from '../../shared/error/OutdatedEntityVersionError';
+import { LayerService } from '../../layers/service/LayerService';
 
 @Injectable()
 export class ProjectService {
@@ -19,6 +20,7 @@ export class ProjectService {
   constructor(
     @InjectModel(Project.name)
     private readonly projectModel: Model<ProjectDocument>,
+    private readonly layerService: LayerService,
   ) {}
 
   async create(
@@ -101,6 +103,7 @@ export class ProjectService {
       throw new NotFoundEntityError('Project not found', 'Project', '404');
     }
 
-    this.logger.log(`Project deleted successfully: ${id}`);
+    await this.layerService.deleteByProjectId(id);
+    this.logger.log(`Project and associated layers deleted: ${id}`);
   }
 }
