@@ -6,6 +6,8 @@ export interface EnvironmentVariables {
   JWT_EXPIRY: string;
   JWT_ISSUER: string;
   JWT_PRIVATE_KEY: string;
+  JWT_REFRESH_PRIVATE_KEY?: string;
+  JWT_REFRESH_EXPIRY?: string;
   TWILIO_ACCOUNT_SID: string;
   TWILIO_AUTH_TOKEN: string;
   TWILIO_VERIFY_SID: string;
