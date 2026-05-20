@@ -4,12 +4,13 @@
 import { OrgRole } from '../../shared/enum/OrgRole';
 
 export interface JwtPayload {
-  sub: string;            // userId (MongoDB ObjectId as string)
-  organizationId: string; // active org ObjectId
-  orgRole: OrgRole;       // owner | admin | member
+  sub: string; // userId (MongoDB ObjectId as string)
+  organizationId?: string; // active org ObjectId
+  orgRole?: OrgRole; // owner | admin | member
   aud: string;
   iss: string;
   iat: number;
   exp: number;
   jti: string;
+  fid?: string;
 }
