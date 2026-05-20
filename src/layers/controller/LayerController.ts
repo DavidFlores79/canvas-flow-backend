@@ -49,7 +49,10 @@ function mapToLayerDto(layer: Layer & { _id?: unknown; id?: string }): LayerDto 
   dto.organizationId = layer.organizationId?.toString();
   dto.assetId = layer.assetId?.toString();
   dto.type = layer.type;
-  dto.properties = layer.properties as unknown as Record<string, unknown>;
+  dto.content = layer.content;
+  dto.properties = layer.properties instanceof Map
+    ? Object.fromEntries(layer.properties)
+    : (layer.properties as unknown as Record<string, unknown>);
   dto.createdAt = layer.createdAt;
   dto.updatedAt = layer.updatedAt;
   return dto;
