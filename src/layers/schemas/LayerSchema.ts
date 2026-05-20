@@ -20,6 +20,9 @@ export class Layer {
   @Prop({ type: String, required: true, enum: ['text', 'image', 'shape'] })
   type: string;
 
+  @Prop({ type: String })
+  content?: string;
+
   @Prop({ type: Map, of: Object })
   properties: Map<string, unknown>;
 
