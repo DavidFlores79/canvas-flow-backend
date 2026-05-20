@@ -6,6 +6,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException, ConflictException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
+import { createHash } from 'crypto';
 import { getModelToken } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 
@@ -19,6 +20,7 @@ import { JwtService } from '@nestjs/jwt';
 import { SmsValidationService } from '../../sms-validation/service/SmsValidationService';
 import { OrganizationMember } from '../../organizations/schemas/OrganizationMemberSchema';
 import { OrgRole } from '../../shared/enum/OrgRole';
+import { RefreshSession } from '../schemas/RefreshSessionSchema';
 
 import { Status, Group } from '../../users/enum/UserEnum';
 import { User } from '../../users/schemas/UserSchema';
@@ -65,6 +67,26 @@ describe('AuthService', () => {
     find: jest.fn().mockReturnValue(mockOrgMemberFindChain),
   };
 
+  const mockRefreshSessionFindOneChain = {
+    lean: jest.fn().mockReturnThis(),
+    exec: jest.fn(),
+  };
+
+  const mockRefreshSessionUpdateOneChain = {
+    exec: jest.fn(),
+  };
+
+  const mockRefreshSessionUpdateManyChain = {
+    exec: jest.fn(),
+  };
+
+  const mockRefreshSessionModel = {
+    create: jest.fn(),
+    findOne: jest.fn().mockReturnValue(mockRefreshSessionFindOneChain),
+    updateOne: jest.fn().mockReturnValue(mockRefreshSessionUpdateOneChain),
+    updateMany: jest.fn().mockReturnValue(mockRefreshSessionUpdateManyChain),
+  };
+
   // Common fake user used across tests
   const fakeUser: Partial<User> = {
     id: new Types.ObjectId().toHexString(),
@@ -101,6 +123,10 @@ describe('AuthService', () => {
           provide: getModelToken(OrganizationMember.name),
           useValue: mockOrgMemberModel,
         },
+        {
+          provide: getModelToken(RefreshSession.name),
+          useValue: mockRefreshSessionModel,
+        },
       ],
     }).compile();
 
@@ -113,6 +139,51 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    mockRefreshSessionFindOneChain.lean.mockReturnThis();
+    mockRefreshSessionFindOneChain.exec.mockResolvedValue(null);
+    mockRefreshSessionUpdateOneChain.exec.mockResolvedValue({
+      acknowledged: true,
+    });
+    mockRefreshSessionUpdateManyChain.exec.mockResolvedValue({
+      acknowledged: true,
+    });
+    mockRefreshSessionModel.findOne.mockReturnValue(
+      mockRefreshSessionFindOneChain,
+    );
+
+    mockJwtService.verifyAsync.mockImplementation(async (token: string) => {
+      if (token === 'refresh-token') {
+        return {
+          sub: fakeUser.id,
+          jti: 'jti-1',
+          fid: 'family-1',
+          exp: Math.floor(Date.now() / 1000) + 3600,
+        };
+      }
+      if (token === 'new-refresh') {
+        return {
+          sub: fakeUser.id,
+          jti: 'jti-2',
+          fid: 'family-1',
+          exp: Math.floor(Date.now() / 1000) + 3600,
+        };
+      }
+      if (token === 'rtoken') {
+        return {
+          sub: fakeUser.id,
+          jti: 'kid',
+          fid: 'family-1',
+          exp: Math.floor(Date.now() / 1000) + 3600,
+        };
+      }
+      return {
+        sub: fakeUser.id,
+        jti: 'jti-generic',
+        fid: 'family-generic',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      };
+    });
   });
 
   /**
@@ -135,6 +206,7 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       mockJwtService.signAsync.mockResolvedValueOnce('access-token');
       mockJwtService.signAsync.mockResolvedValueOnce('refresh-token');
+      mockRefreshSessionModel.create.mockResolvedValue({});
 
       // act
       const session = await service.signIn({
@@ -153,7 +225,9 @@ describe('AuthService', () => {
       expect(session).toHaveProperty('kid');
       expect(session).toHaveProperty('user');
       expect(session.user?.email).toEqual(fakeUser.email);
-      expect(session.organizationId).toBe(fakeMembership.organizationId.toString());
+      expect(session.organizationId).toBe(
+        fakeMembership.organizationId.toString(),
+      );
       expect(session.organizations).toHaveLength(1);
       expect(session.organizations?.[0].role).toBe(OrgRole.Owner);
     });
@@ -164,6 +238,7 @@ describe('AuthService', () => {
       mockJwtService.signAsync.mockResolvedValueOnce('access-token');
       mockJwtService.signAsync.mockResolvedValueOnce('refresh-token');
       mockOrgMemberFindChain.exec.mockResolvedValue([]);
+      mockRefreshSessionModel.create.mockResolvedValue({});
 
       const session = await service.signIn({
         email: 'test@example.com',
@@ -272,15 +347,29 @@ describe('AuthService', () => {
     it('should refresh tokens when refresh token is valid and user exists', async () => {
       const refreshToken = 'rtoken';
       const audience = 'aud';
-      const payload = { sub: fakeUser.id, jti: 'kid' };
+      const payload = {
+        sub: fakeUser.id,
+        jti: 'kid',
+        fid: 'family-1',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      };
 
       // mock verify -> payload
       mockJwtService.verifyAsync.mockResolvedValue(payload as any);
       mockUserService.findById.mockResolvedValue(fakeUser);
+      mockRefreshSessionFindOneChain.exec.mockResolvedValue({
+        _id: 'session-1',
+        userId: new Types.ObjectId(fakeUser.id),
+        jti: 'kid',
+        familyId: 'family-1',
+        tokenHash: createHash('sha256').update(refreshToken).digest('hex'),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      });
       // signAsync first call -> access token, second -> refresh token
       mockJwtService.signAsync
         .mockResolvedValueOnce('new-access')
         .mockResolvedValueOnce('new-refresh');
+      mockRefreshSessionModel.create.mockResolvedValue({});
 
       const resp: RefreshTokenResponseDto = await service.refreshToken({
         refreshToken,
@@ -292,6 +381,7 @@ describe('AuthService', () => {
         audience,
         secret: 'test-secret',
       });
+      expect(mockRefreshSessionModel.updateOne).toHaveBeenCalled();
       expect(mockUserService.findById).toHaveBeenCalledWith(
         String(payload.sub),
       );
@@ -302,7 +392,7 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException when verify returns invalid payload (no sub)', async () => {
-      mockJwtService.verifyAsync.mockResolvedValue({});
+      mockJwtService.verifyAsync.mockResolvedValue({ jti: 'x', fid: 'f-1' });
 
       await expect(
         service.refreshToken({ refreshToken: 'x', audience: 'aud' }),
@@ -310,8 +400,21 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException when user not found', async () => {
-      const payload = { sub: 'nonexistent', jti: 'kid' };
+      const payload = {
+        sub: new Types.ObjectId().toHexString(),
+        jti: 'kid',
+        fid: 'family-1',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      };
       mockJwtService.verifyAsync.mockResolvedValue(payload as any);
+      mockRefreshSessionFindOneChain.exec.mockResolvedValue({
+        _id: 'session-1',
+        userId: new Types.ObjectId(),
+        jti: 'kid',
+        familyId: 'family-1',
+        tokenHash: createHash('sha256').update('x').digest('hex'),
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      });
       mockUserService.findById.mockResolvedValue(null);
 
       await expect(
@@ -328,6 +431,20 @@ describe('AuthService', () => {
 
       await expect(
         service.refreshToken({ refreshToken: 'bad', audience: 'aud' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw UnauthorizedException when refresh session is not found', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue({
+        sub: fakeUser.id,
+        jti: 'kid',
+        fid: 'family-1',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      });
+      mockRefreshSessionFindOneChain.exec.mockResolvedValue(null);
+
+      await expect(
+        service.refreshToken({ refreshToken: 'x', audience: 'aud' }),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
@@ -465,7 +582,9 @@ describe('AuthService', () => {
 
       await expect(
         service.switchOrganization(userId, organizationId),
-      ).rejects.toThrow(new UnauthorizedException('Not a member of this organization'));
+      ).rejects.toThrow(
+        new UnauthorizedException('Not a member of this organization'),
+      );
     });
 
     it('throws UnauthorizedException when user not found after membership check', async () => {
@@ -490,20 +609,32 @@ describe('AuthService', () => {
       mockSmsValidationService.validateSmsCode.mockResolvedValue({ userId });
       mockUserService.findById
         .mockResolvedValueOnce({ ...fakeUser, id: userId })
-        .mockResolvedValueOnce({ ...fakeUser, id: userId, verified: true, status: Status.VALIDATED });
+        .mockResolvedValueOnce({
+          ...fakeUser,
+          id: userId,
+          verified: true,
+          status: Status.VALIDATED,
+        });
       mockUserService.updateById.mockResolvedValue(undefined);
 
-      const result = await service.confirmSignUp({ id: 'sms-id', code: '123456' });
+      const result = await service.confirmSignUp({
+        id: 'sms-id',
+        code: '123456',
+      });
 
       expect(result.email).toBe(fakeUser.email);
     });
 
     it('should throw NotFoundException when user not found after SMS validation', async () => {
       const { NotFoundException } = await import('@nestjs/common');
-      mockSmsValidationService.validateSmsCode.mockResolvedValue({ userId: 'missing-user' });
+      mockSmsValidationService.validateSmsCode.mockResolvedValue({
+        userId: 'missing-user',
+      });
       mockUserService.findById.mockResolvedValue(null);
 
-      await expect(service.confirmSignUp({ id: 'sms-id', code: '000000' })).rejects.toThrow(NotFoundException);
+      await expect(
+        service.confirmSignUp({ id: 'sms-id', code: '000000' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -515,7 +646,9 @@ describe('AuthService', () => {
       mockUserService.findById.mockResolvedValue(fakeUser);
       mockSmsValidationService.resendSmsCode.mockResolvedValue(undefined);
 
-      await expect(service.resendSignUpCode({ id: fakeUser.id as string })).resolves.not.toThrow();
+      await expect(
+        service.resendSignUpCode({ id: fakeUser.id as string }),
+      ).resolves.not.toThrow();
       expect(mockSmsValidationService.resendSmsCode).toHaveBeenCalled();
     });
 
@@ -523,7 +656,9 @@ describe('AuthService', () => {
       const { NotFoundException } = await import('@nestjs/common');
       mockUserService.findById.mockResolvedValue(null);
 
-      await expect(service.resendSignUpCode({ id: 'missing' })).rejects.toThrow(NotFoundException);
+      await expect(service.resendSignUpCode({ id: 'missing' })).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -537,7 +672,9 @@ describe('AuthService', () => {
       });
       mockSmsValidationService.sendSmsCode.mockResolvedValue(undefined);
 
-      await expect(service.recoverPassword({ phone: fakeUser.phone as string })).resolves.not.toThrow();
+      await expect(
+        service.recoverPassword({ phone: fakeUser.phone as string }),
+      ).resolves.not.toThrow();
       expect(mockSmsValidationService.sendSmsCode).toHaveBeenCalled();
     });
 
@@ -545,7 +682,9 @@ describe('AuthService', () => {
       const { UnprocessableEntityException } = await import('@nestjs/common');
       mockUserService.findAll.mockResolvedValue({ docs: [] });
 
-      await expect(service.recoverPassword({ phone: '0000000000' })).rejects.toThrow(UnprocessableEntityException);
+      await expect(
+        service.recoverPassword({ phone: '0000000000' }),
+      ).rejects.toThrow(UnprocessableEntityException);
     });
 
     it('should throw UnprocessableEntityException when user not validated', async () => {
@@ -554,7 +693,9 @@ describe('AuthService', () => {
         docs: [{ ...fakeUser, status: Status.REGISTERED }],
       });
 
-      await expect(service.recoverPassword({ phone: fakeUser.phone as string })).rejects.toThrow(UnprocessableEntityException);
+      await expect(
+        service.recoverPassword({ phone: fakeUser.phone as string }),
+      ).rejects.toThrow(UnprocessableEntityException);
     });
   });
 
@@ -568,14 +709,18 @@ describe('AuthService', () => {
       });
       mockSmsValidationService.resendSmsCode.mockResolvedValue(undefined);
 
-      await expect(service.resendRecoverPassword({ phone: fakeUser.phone as string })).resolves.not.toThrow();
+      await expect(
+        service.resendRecoverPassword({ phone: fakeUser.phone as string }),
+      ).resolves.not.toThrow();
     });
 
     it('should throw UnprocessableEntityException when user not found', async () => {
       const { UnprocessableEntityException } = await import('@nestjs/common');
       mockUserService.findAll.mockResolvedValue({ docs: [] });
 
-      await expect(service.resendRecoverPassword({ phone: '0000000000' })).rejects.toThrow(UnprocessableEntityException);
+      await expect(
+        service.resendRecoverPassword({ phone: '0000000000' }),
+      ).rejects.toThrow(UnprocessableEntityException);
     });
 
     it('should throw UnprocessableEntityException when user not validated', async () => {
@@ -584,7 +729,9 @@ describe('AuthService', () => {
         docs: [{ ...fakeUser, status: Status.REGISTERED }],
       });
 
-      await expect(service.resendRecoverPassword({ phone: fakeUser.phone as string })).rejects.toThrow(UnprocessableEntityException);
+      await expect(
+        service.resendRecoverPassword({ phone: fakeUser.phone as string }),
+      ).rejects.toThrow(UnprocessableEntityException);
     });
   });
 
@@ -614,7 +761,12 @@ describe('AuthService', () => {
       mockUserService.findAll.mockResolvedValue({ docs: [] });
 
       await expect(
-        service.confirmRecoverPassword({ phone: '0000', code: '000', password: 'x', confirmPassword: 'x' }),
+        service.confirmRecoverPassword({
+          phone: '0000',
+          code: '000',
+          password: 'x',
+          confirmPassword: 'x',
+        }),
       ).rejects.toThrow(UnprocessableEntityException);
     });
   });
@@ -624,15 +776,22 @@ describe('AuthService', () => {
    */
   describe('validateSmsCode', () => {
     it('should return IsValidSmsCodeDto from smsValidationService', async () => {
-      mockSmsValidationService.validateOnlySmsCode.mockResolvedValue({ isValid: true });
+      mockSmsValidationService.validateOnlySmsCode.mockResolvedValue({
+        isValid: true,
+      });
 
-      const result = await service.validateSmsCode({ id: 'user-id', code: '123456' });
-
-      expect(result).toEqual({ isValid: true });
-      expect(mockSmsValidationService.validateOnlySmsCode).toHaveBeenCalledWith({
+      const result = await service.validateSmsCode({
         id: 'user-id',
         code: '123456',
       });
+
+      expect(result).toEqual({ isValid: true });
+      expect(mockSmsValidationService.validateOnlySmsCode).toHaveBeenCalledWith(
+        {
+          id: 'user-id',
+          code: '123456',
+        },
+      );
     });
   });
 });

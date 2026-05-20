@@ -17,7 +17,7 @@ import { Gender, Group, Status } from '../../users/enum/UserEnum';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '../../users/schemas/UserSchema';
 import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { EnvironmentVariables } from '../../config/EnvironmentVariables';
 import { UserDto } from '../../users/dto/UserDto';
@@ -47,7 +47,15 @@ import {
   OrganizationMember,
   OrganizationMemberDocument,
 } from '../../organizations/schemas/OrganizationMemberSchema';
+import {
+  Organization,
+  OrganizationDocument,
+} from '../../organizations/schemas/OrganizationSchema';
 import { OrgRole } from '../../shared/enum/OrgRole';
+import {
+  RefreshSession,
+  RefreshSessionDocument,
+} from '../schemas/RefreshSessionSchema';
 
 @Injectable()
 export class AuthService {
@@ -62,6 +70,10 @@ export class AuthService {
     private readonly jwtService: JwtService,
     @InjectModel(OrganizationMember.name)
     private readonly orgMemberModel: Model<OrganizationMemberDocument>,
+    @InjectModel(RefreshSession.name)
+    private readonly refreshSessionModel: Model<RefreshSessionDocument>,
+    @InjectModel(Organization.name)
+    private readonly organizationModel: Model<OrganizationDocument>,
   ) {}
 
   async signIn(
@@ -119,8 +131,16 @@ export class AuthService {
     userSession.jwt = accessToken;
     userSession.refreshToken = refreshToken;
     userSession.organizationId = firstMembership?.organizationId?.toString();
+    const orgIds = memberships.map((m) => m.organizationId);
+    const orgs = await this.organizationModel
+      .find({ _id: { $in: orgIds } })
+      .lean()
+      .exec();
+    const orgNameMap = new Map(orgs.map((o) => [o._id.toString(), o.name]));
+
     userSession.organizations = memberships.map((m) => ({
       id: m.organizationId.toString(),
+      name: orgNameMap.get(m.organizationId.toString()) ?? '',
       role: m.role,
     }));
 
@@ -402,9 +422,54 @@ export class AuthService {
     const payload = await this.verifyRefreshToken(refreshToken, audience);
 
     // si usas jti/revocation: validar aquí que sea válido y no consumido
-    if (!payload || !payload.sub) {
+    if (!payload || !payload.sub || !payload.jti || !payload.fid) {
       this.logger.warn('Token refresh failed: Invalid refresh token payload');
       throw new UnauthorizedException('Invalid refresh token payload');
+    }
+
+    const currentSession = await this.refreshSessionModel
+      .findOne({
+        userId: new Types.ObjectId(payload.sub),
+        jti: payload.jti,
+        familyId: payload.fid,
+      })
+      .lean()
+      .exec();
+
+    if (!currentSession) {
+      this.logger.warn('Token refresh failed: Session not found', {
+        userId: payload.sub,
+        jti: payload.jti,
+      });
+      throw new UnauthorizedException('Refresh session not found');
+    }
+
+    if (currentSession.revokedAt || currentSession.replacedByJti) {
+      await this.revokeRefreshFamily(
+        currentSession.familyId,
+        'replay_detected',
+      );
+      this.logger.warn('Token refresh failed: Replay detected', {
+        userId: payload.sub,
+        jti: payload.jti,
+      });
+      throw new UnauthorizedException('Refresh token replay detected');
+    }
+
+    if (currentSession.expiresAt.getTime() <= Date.now()) {
+      this.logger.warn('Token refresh failed: Session expired', {
+        userId: payload.sub,
+        jti: payload.jti,
+      });
+      throw new UnauthorizedException('Refresh session expired');
+    }
+
+    if (currentSession.tokenHash !== this.hashToken(refreshToken)) {
+      this.logger.warn('Token refresh failed: Invalid token hash', {
+        userId: payload.sub,
+        jti: payload.jti,
+      });
+      throw new UnauthorizedException('Invalid refresh token');
     }
 
     const user = await this.userService.findById(String(payload.sub));
@@ -415,8 +480,48 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    const { accessToken, refreshToken: newRefreshToken } =
-      await this.generateTokensForUser(user, audience);
+    let activeMembership: OrganizationMember | undefined;
+    if (currentSession.organizationId) {
+      const orgMembership = await this.orgMemberModel
+        .findOne({
+          userId: new Types.ObjectId(user.id),
+          organizationId: currentSession.organizationId,
+        })
+        .lean()
+        .exec();
+
+      if (!orgMembership) {
+        this.logger.warn('Token refresh failed: Membership no longer valid', {
+          userId: user.id,
+          organizationId: currentSession.organizationId.toString(),
+        });
+        throw new UnauthorizedException('Organization membership is not valid');
+      }
+
+      activeMembership = orgMembership as OrganizationMember;
+    }
+
+    const {
+      accessToken,
+      refreshToken: newRefreshToken,
+      kid,
+    } = await this.generateTokensForUser(user, audience, activeMembership, {
+      familyId: currentSession.familyId,
+    });
+
+    await this.refreshSessionModel
+      .updateOne(
+        { _id: currentSession._id },
+        {
+          $set: {
+            revokedAt: new Date(),
+            revokeReason: 'rotated',
+            replacedByJti: kid,
+            lastUsedAt: new Date(),
+          },
+        },
+      )
+      .exec();
 
     this.logger.log(`Token refreshed for user: ${user.id}`);
 
@@ -431,7 +536,10 @@ export class AuthService {
     organizationId: string,
     audience?: string,
   ): Promise<RefreshTokenResponseDto> {
-    this.logger.debug('Switch organization attempt', { userId, organizationId });
+    this.logger.debug('Switch organization attempt', {
+      userId,
+      organizationId,
+    });
 
     const membership = await this.orgMemberModel
       .findOne({
@@ -451,7 +559,9 @@ export class AuthService {
 
     const user = await this.userService.findById(userId);
     if (!user) {
-      this.logger.warn('Switch organization failed: User not found', { userId });
+      this.logger.warn('Switch organization failed: User not found', {
+        userId,
+      });
       throw new UnauthorizedException('User not found');
     }
 
@@ -461,7 +571,9 @@ export class AuthService {
       membership as OrganizationMember,
     );
 
-    this.logger.log(`Organization switched for user: ${userId} to org: ${organizationId}`);
+    this.logger.log(
+      `Organization switched for user: ${userId} to org: ${organizationId}`,
+    );
 
     return { accessToken, refreshToken };
   }
@@ -536,9 +648,14 @@ export class AuthService {
   }
 
   private getJwtConfig() {
+    const accessSecret = this.configService.get<string>('JWT_PRIVATE_KEY');
+    const refreshSecret =
+      this.configService.get<string>('JWT_REFRESH_PRIVATE_KEY') || accessSecret;
+
     return {
       issuer: this.configService.get<string>('JWT_ISSUER'),
-      secret: this.configService.get<string>('JWT_PRIVATE_KEY'),
+      accessSecret,
+      refreshSecret,
     };
   }
 
@@ -554,9 +671,14 @@ export class AuthService {
     user: User,
     audience?: string,
     orgMembership?: OrganizationMember,
+    options?: { familyId?: string },
   ) {
-    const { issuer, secret } = this.getJwtConfig();
+    const { issuer, accessSecret, refreshSecret } = this.getJwtConfig();
     const kid = randomUUID();
+    const familyId = options?.familyId || randomUUID();
+    const refreshTokenExpiry =
+      this.configService.get<string>('JWT_REFRESH_EXPIRY') ||
+      this.refreshTokenExpiry;
 
     const claims: Record<string, unknown> = {
       sub: user.id,
@@ -567,17 +689,48 @@ export class AuthService {
       claims['orgRole'] = orgMembership.role as OrgRole;
     }
 
-    const tokenOptions: Record<string, unknown> = { issuer, keyid: kid, secret, expiresIn: this.accessTokenExpiry };
+    const tokenOptions: Record<string, unknown> = {
+      issuer,
+      keyid: kid,
+      secret: accessSecret,
+      expiresIn: this.accessTokenExpiry,
+    };
     if (audience) tokenOptions['audience'] = audience;
 
-    const accessToken = await this.jwtService.signAsync(claims, tokenOptions as Parameters<typeof this.jwtService.signAsync>[1]);
+    const accessToken = await this.jwtService.signAsync(
+      claims,
+      tokenOptions as Parameters<typeof this.jwtService.signAsync>[1],
+    );
 
-    const refreshClaims = { ...claims, jti: kid };
+    const refreshClaims = { ...claims, jti: kid, fid: familyId };
 
     const refreshToken = await this.jwtService.signAsync(refreshClaims, {
       ...tokenOptions,
-      expiresIn: this.refreshTokenExpiry,
+      secret: refreshSecret,
+      expiresIn: refreshTokenExpiry,
     } as Parameters<typeof this.jwtService.signAsync>[1]);
+
+    const decodedRefresh = await this.jwtService.verifyAsync<JwtPayload>(
+      refreshToken,
+      {
+        issuer,
+        audience,
+        secret: refreshSecret,
+      },
+    );
+
+    const expiresAt = new Date((decodedRefresh.exp || 0) * 1000);
+
+    await this.refreshSessionModel.create({
+      userId: new Types.ObjectId(user.id),
+      jti: kid,
+      familyId,
+      tokenHash: this.hashToken(refreshToken),
+      audience,
+      organizationId: orgMembership?.organizationId,
+      orgRole: orgMembership?.role,
+      expiresAt,
+    });
 
     return {
       accessToken,
@@ -594,7 +747,7 @@ export class AuthService {
     refreshToken: string,
     audience?: string,
   ): Promise<JwtPayload> {
-    const { issuer, secret } = this.getJwtConfig();
+    const { issuer, refreshSecret } = this.getJwtConfig();
 
     try {
       // `verifyAsync` should return the payload if valid or throw if not
@@ -603,12 +756,17 @@ export class AuthService {
         {
           issuer,
           audience,
-          secret,
+          secret: refreshSecret,
         },
       );
 
-      // payload should include `sub` and `jti`
-      if (!payload || typeof payload.sub !== 'string') {
+      // payload should include `sub`, `jti` and `fid`
+      if (
+        !payload ||
+        typeof payload.sub !== 'string' ||
+        typeof payload.jti !== 'string' ||
+        typeof payload.fid !== 'string'
+      ) {
         this.logger.warn('Invalid refresh token payload structure');
         throw new UnauthorizedException('Invalid refresh token payload');
       }
@@ -619,6 +777,30 @@ export class AuthService {
       });
       throw new UnauthorizedException(`Invalid refresh token ${err}`);
     }
+  }
+
+  private async revokeRefreshFamily(
+    familyId: string,
+    reason: string,
+  ): Promise<void> {
+    await this.refreshSessionModel
+      .updateMany(
+        {
+          familyId,
+          revokedAt: { $exists: false },
+        },
+        {
+          $set: {
+            revokedAt: new Date(),
+            revokeReason: reason,
+          },
+        },
+      )
+      .exec();
+  }
+
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
   }
 
   private buildUserDto(user: User): UserDto {
