@@ -118,4 +118,10 @@ export class LayerService {
 
     this.logger.log(`Layer deleted successfully: ${id}`);
   }
+
+  async deleteByProjectId(projectId: string): Promise<void> {
+    this.logger.log(`Deleting all layers for project: ${projectId}`);
+    await this.layerModel.deleteMany({ projectId: new Types.ObjectId(projectId) }).exec();
+    this.logger.log(`Layers deleted for project: ${projectId}`);
+  }
 }

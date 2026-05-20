@@ -8,6 +8,7 @@ import { Project, ProjectSchema } from './schemas/ProjectSchema';
 import { ProjectService } from './service/ProjectService';
 import { ProjectController } from './controller/ProjectController';
 import { CaslModule } from '../casl/CaslModule';
+import { LayersModule } from '../layers/LayersModule';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { CaslModule } from '../casl/CaslModule';
       { name: Project.name, schema: ProjectSchema },
     ]),
     CaslModule,
+    LayersModule,
   ],
   providers: [ProjectService],
   controllers: [ProjectController],

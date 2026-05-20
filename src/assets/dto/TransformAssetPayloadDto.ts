@@ -13,11 +13,15 @@ import {
 } from 'class-validator';
 
 export class TransformAssetPayloadDto {
-  @ApiProperty({ description: 'Workspace ID where the new transformed asset will be saved' })
+  @ApiProperty({
+    description: 'Workspace ID where the new transformed asset will be saved',
+  })
   @IsMongoId()
   workspaceId: string;
 
-  @ApiPropertyOptional({ description: 'Remove image background using Cloudinary AI' })
+  @ApiPropertyOptional({
+    description: 'Remove image background using Cloudinary AI',
+  })
   @IsOptional()
   @IsBoolean()
   removeBackground?: boolean;
@@ -42,14 +46,22 @@ export class TransformAssetPayloadDto {
   @IsIn(['fill', 'crop', 'scale', 'fit', 'thumb'])
   crop?: string;
 
-  @ApiPropertyOptional({ description: 'Brightness adjustment (-100 to 100)', minimum: -100, maximum: 100 })
+  @ApiPropertyOptional({
+    description: 'Brightness adjustment (-100 to 100)',
+    minimum: -100,
+    maximum: 100,
+  })
   @IsOptional()
   @IsInt()
   @Min(-100)
   @Max(100)
   brightness?: number;
 
-  @ApiPropertyOptional({ description: 'Contrast adjustment (-100 to 100)', minimum: -100, maximum: 100 })
+  @ApiPropertyOptional({
+    description: 'Contrast adjustment (-100 to 100)',
+    minimum: -100,
+    maximum: 100,
+  })
   @IsOptional()
   @IsInt()
   @Min(-100)
@@ -61,7 +73,11 @@ export class TransformAssetPayloadDto {
   @IsBoolean()
   grayscale?: boolean;
 
-  @ApiPropertyOptional({ description: 'Blur strength (0 to 2000)', minimum: 0, maximum: 2000 })
+  @ApiPropertyOptional({
+    description: 'Blur strength (0 to 2000)',
+    minimum: 0,
+    maximum: 2000,
+  })
   @IsOptional()
   @IsInt()
   @Min(0)
@@ -70,9 +86,9 @@ export class TransformAssetPayloadDto {
 
   @ApiPropertyOptional({
     description: 'Output format',
-    enum: ['jpg', 'png', 'webp', 'avif'],
+    enum: ['jpg', 'png', 'webp', 'avif', 'gif', 'tiff'],
   })
   @IsOptional()
-  @IsIn(['jpg', 'png', 'webp', 'avif'])
+  @IsIn(['jpg', 'png', 'webp', 'avif', 'gif', 'tiff'])
   format?: string;
 }

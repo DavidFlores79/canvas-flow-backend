@@ -13,6 +13,7 @@ import { UpdateProjectPayloadDto } from '../dto/UpdateProjectPayloadDto';
 import { FilterProjectsQueryDto } from '../dto/FilterProjectsQueryDto';
 import { NotFoundEntityError } from '../../shared/error/NotFoundEntityError';
 import { OutdatedEntityVersionError } from '../../shared/error/OutdatedEntityVersionError';
+import { LayerService } from '../../layers/service/LayerService';
 
 const fakeOrgId = new Types.ObjectId().toString();
 const fakeWorkspaceId = new Types.ObjectId().toString();
@@ -54,6 +55,10 @@ const createMockProjectModel = (): MockProjectModel => {
   return MockModel;
 };
 
+const mockLayerService = {
+  deleteByProjectId: jest.fn(),
+};
+
 describe('ProjectService', () => {
   let service: ProjectService;
   let projectModel: MockProjectModel;
@@ -65,6 +70,7 @@ describe('ProjectService', () => {
       providers: [
         ProjectService,
         { provide: getModelToken(Project.name), useValue: projectModel },
+        { provide: LayerService, useValue: mockLayerService },
       ],
     }).compile();
 
@@ -176,20 +182,23 @@ describe('ProjectService', () => {
   });
 
   describe('delete', () => {
-    it('deletes project successfully', async () => {
+    it('deletes project and cascades to layers', async () => {
       projectModel.findByIdAndDelete.mockReturnValue({
         exec: jest.fn().mockResolvedValue(fakeProject),
       });
+      mockLayerService.deleteByProjectId.mockResolvedValue(undefined);
 
       await expect(service.delete(fakeProjectId)).resolves.toBeUndefined();
+      expect(mockLayerService.deleteByProjectId).toHaveBeenCalledWith(fakeProjectId);
     });
 
-    it('throws NotFoundEntityError when project not found', async () => {
+    it('throws NotFoundEntityError when project not found and does not delete layers', async () => {
       projectModel.findByIdAndDelete.mockReturnValue({
         exec: jest.fn().mockResolvedValue(null),
       });
 
       await expect(service.delete('nonexistent')).rejects.toThrow(NotFoundEntityError);
+      expect(mockLayerService.deleteByProjectId).not.toHaveBeenCalled();
     });
   });
 });

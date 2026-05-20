@@ -35,6 +35,7 @@ type MockLayerModel = {
   findByIdAndUpdate: jest.Mock;
   findByIdAndDelete: jest.Mock;
   findOneAndUpdate: jest.Mock;
+  deleteMany: jest.Mock;
 };
 
 const createMockLayerModel = (): MockLayerModel => {
@@ -48,6 +49,7 @@ const createMockLayerModel = (): MockLayerModel => {
   MockModel.findByIdAndUpdate = jest.fn();
   MockModel.findByIdAndDelete = jest.fn();
   MockModel.findOneAndUpdate = jest.fn();
+  MockModel.deleteMany = jest.fn();
   return MockModel;
 };
 
@@ -217,6 +219,23 @@ describe('LayerService', () => {
       });
 
       await expect(service.delete('nonexistent')).rejects.toThrow(NotFoundEntityError);
+    });
+  });
+
+  describe('deleteByProjectId', () => {
+    it('deletes all layers for a project', async () => {
+      layerModel.deleteMany.mockReturnValue({ exec: jest.fn().mockResolvedValue({ deletedCount: 3 }) });
+
+      await expect(service.deleteByProjectId(fakeProjectId)).resolves.toBeUndefined();
+      expect(layerModel.deleteMany).toHaveBeenCalledWith({
+        projectId: new Types.ObjectId(fakeProjectId),
+      });
+    });
+
+    it('resolves when no layers exist for the project', async () => {
+      layerModel.deleteMany.mockReturnValue({ exec: jest.fn().mockResolvedValue({ deletedCount: 0 }) });
+
+      await expect(service.deleteByProjectId(fakeProjectId)).resolves.toBeUndefined();
     });
   });
 });
