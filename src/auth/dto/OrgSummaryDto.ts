@@ -7,6 +7,9 @@ export class OrgSummaryDto {
   @ApiProperty({ description: 'Organization ID' })
   id: string;
 
+  @ApiProperty({ description: 'Organization name' })
+  name: string;
+
   @ApiProperty({ description: 'User role in this organization' })
   role: string;
 }
