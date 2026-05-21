@@ -4,6 +4,7 @@
 import {
   Controller,
   Post,
+  Version,
   Body,
   HttpCode,
   HttpStatus,
@@ -31,9 +32,14 @@ interface RequestWithUser extends Request {
   user: { sub: string; organizationId: string };
 }
 
-function mapToAssetDto(asset: Asset & { _id?: unknown; id?: string }): AssetDto {
+function mapToAssetDto(
+  asset: Asset & { _id?: unknown; id?: string },
+): AssetDto {
   const dto = new AssetDto();
-  dto.id = (asset as unknown as { _id: { toString(): string } })._id?.toString() ?? (asset as { id?: string }).id ?? '';
+  dto.id =
+    (asset as unknown as { _id: { toString(): string } })._id?.toString() ??
+    (asset as { id?: string }).id ??
+    '';
   dto.organizationId = asset.organizationId?.toString();
   dto.workspaceId = asset.workspaceId?.toString();
   dto.cloudinaryPublicId = asset.cloudinaryPublicId;
@@ -51,17 +57,25 @@ function mapToAssetDto(asset: Asset & { _id?: unknown; id?: string }): AssetDto 
 export class AiController {
   constructor(private readonly aiService: AiService) {}
 
+  @Version('1')
   @Post('generate')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, TenantGuard)
   @ApiOperation({
     operationId: 'aiGenerate',
-    summary: 'Generate images with Leonardo AI and save to Cloudinary as Assets',
-    description: 'Synchronous — server polls Leonardo for up to 60 seconds. Frontend should display a loading state.',
+    summary:
+      'Generate images with Leonardo AI and save to Cloudinary as Assets',
+    description:
+      'Synchronous — server polls Leonardo for up to 60 seconds. Frontend should display a loading state.',
   })
-  @ApiCreatedResponse({ description: 'Images generated and saved as Assets', type: AiGenerateResultDto })
+  @ApiCreatedResponse({
+    description: 'Images generated and saved as Assets',
+    type: AiGenerateResultDto,
+  })
   @ApiBadRequestResponse({ description: 'Validation error' })
-  @ApiUnprocessableEntityResponse({ description: 'Generation failed or timed out' })
+  @ApiUnprocessableEntityResponse({
+    description: 'Generation failed or timed out',
+  })
   async generate(
     @Body() dto: AiGeneratePayloadDto,
     @Request() req: RequestWithUser,

@@ -169,6 +169,8 @@ export class AssetService {
       throw new NotFoundEntityError('Asset not found', 'Asset', '404');
     }
 
+    await this.cloudinaryService.deleteFile(result.cloudinaryPublicId);
+
     this.logger.log(`Asset deleted successfully: ${id}`);
   }
 

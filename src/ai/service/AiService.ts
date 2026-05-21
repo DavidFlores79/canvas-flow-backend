@@ -28,7 +28,7 @@ export class AiService {
     const { generationId } = await this.leonardoService.createGeneration(
       dto.prompt,
       dto.modelId,
-      { width: dto.width, height: dto.height, numImages: dto.numImages },
+      { width: dto.width, height: dto.height, numImages: dto.numImages, presetStyle: dto.presetStyle },
     );
 
     this.logger.debug(`Leonardo generation created: ${generationId}`);
