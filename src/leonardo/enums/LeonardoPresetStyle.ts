@@ -1,0 +1,33 @@
+// ABOUTME: Enum of all supported Leonardo AI preset style values
+// ABOUTME: Used in AiGeneratePayloadDto and forwarded to the Leonardo generations API
+
+export enum LeonardoPresetStyle {
+  ANIME = 'ANIME',
+  BOKEH = 'BOKEH',
+  CINEMATIC = 'CINEMATIC',
+  CREATIVE = 'CREATIVE',
+  DYNAMIC = 'DYNAMIC',
+  ENVIRONMENT = 'ENVIRONMENT',
+  FASHION = 'FASHION',
+  FILM = 'FILM',
+  FOOD = 'FOOD',
+  GENERAL = 'GENERAL',
+  HDR = 'HDR',
+  ILLUSTRATION = 'ILLUSTRATION',
+  LEONARDO = 'LEONARDO',
+  LONG_EXPOSURE = 'LONG_EXPOSURE',
+  MACRO = 'MACRO',
+  MINIMALISTIC = 'MINIMALISTIC',
+  MONOCHROME = 'MONOCHROME',
+  MOODY = 'MOODY',
+  NONE = 'NONE',
+  NEUTRAL = 'NEUTRAL',
+  PHOTOGRAPHY = 'PHOTOGRAPHY',
+  PORTRAIT = 'PORTRAIT',
+  PRO = 'PRO',
+  RETRO = 'RETRO',
+  SKETCH_BW = 'SKETCH_BW',
+  SKETCH_COLOR = 'SKETCH_COLOR',
+  STOCK_PHOTO = 'STOCK_PHOTO',
+  VIBRANT = 'VIBRANT',
+}

@@ -22,6 +22,7 @@ export interface LeonardoCreateGenerationOptions {
   width?: number;
   height?: number;
   numImages?: number;
+  presetStyle?: string;
 }
 
 @Injectable()
@@ -54,6 +55,7 @@ export class LeonardoService {
     if (options.width !== undefined) body.width = options.width;
     if (options.height !== undefined) body.height = options.height;
     if (options.numImages !== undefined) body.num_images = options.numImages;
+    if (options.presetStyle !== undefined) body.presetStyle = options.presetStyle;
 
     const response = await fetch(`${this.baseUrl}/generations`, {
       method: 'POST',

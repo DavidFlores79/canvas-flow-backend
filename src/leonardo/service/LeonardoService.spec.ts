@@ -80,6 +80,37 @@ describe('LeonardoService', () => {
       expect(callBody.num_images).toBe(2);
     });
 
+    it('includes presetStyle in request body when provided', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          sdGenerationJob: { generationId: 'gen-style-789' },
+        }),
+      });
+
+      const result = await service.createGeneration('A cartoon landscape', 'model-abc', {
+        presetStyle: 'ILLUSTRATION',
+      });
+
+      expect(result.generationId).toBe('gen-style-789');
+      const callBody = JSON.parse(fetchMock.mock.calls[0][1].body as string) as Record<string, unknown>;
+      expect(callBody.presetStyle).toBe('ILLUSTRATION');
+    });
+
+    it('omits presetStyle from request body when not provided', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          sdGenerationJob: { generationId: 'gen-no-style-000' },
+        }),
+      });
+
+      await service.createGeneration('A sunset over the ocean', 'model-xyz');
+
+      const callBody = JSON.parse(fetchMock.mock.calls[0][1].body as string) as Record<string, unknown>;
+      expect(callBody).not.toHaveProperty('presetStyle');
+    });
+
     it('throws UnprocessableEntityException on non-2xx response', async () => {
       fetchMock.mockResolvedValue({
         ok: false,
