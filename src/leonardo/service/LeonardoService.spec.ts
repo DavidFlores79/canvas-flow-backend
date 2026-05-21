@@ -59,6 +59,20 @@ describe('LeonardoService', () => {
       );
     });
 
+    it('defaults num_images to 1 when numImages is not provided', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          sdGenerationJob: { generationId: 'gen-default-1' },
+        }),
+      });
+
+      await service.createGeneration('A sunset over the ocean', 'model-xyz');
+
+      const callBody = JSON.parse(fetchMock.mock.calls[0][1].body as string) as Record<string, unknown>;
+      expect(callBody.num_images).toBe(1);
+    });
+
     it('returns generationId on success with direct generationId format', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
