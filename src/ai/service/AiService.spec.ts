@@ -10,6 +10,7 @@ import { LeonardoService } from '../../leonardo/service/LeonardoService';
 import { CloudinaryService } from '../../cloudinary/service/CloudinaryService';
 import { AssetService } from '../../assets/service/AssetService';
 import { AiGeneratePayloadDto } from '../dto/AiGeneratePayloadDto';
+import { LeonardoPresetStyle } from '../../leonardo/enums/LeonardoPresetStyle';
 
 const fakeOrgId = new Types.ObjectId().toString();
 const fakeWorkspaceId = new Types.ObjectId().toString();
@@ -91,10 +92,46 @@ describe('AiService', () => {
       expect(mockLeonardoService.createGeneration).toHaveBeenCalledWith(
         baseDto.prompt,
         baseDto.modelId,
-        { width: undefined, height: undefined, numImages: undefined },
+        { width: undefined, height: undefined, numImages: undefined, presetStyle: undefined },
       );
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual(fakeAsset);
+
+      jest.restoreAllMocks();
+    });
+
+    it('forwards presetStyle to leonardoService when provided', async () => {
+      const dtoWithStyle: AiGeneratePayloadDto = {
+        ...baseDto,
+        presetStyle: LeonardoPresetStyle.ILLUSTRATION,
+      };
+
+      mockLeonardoService.createGeneration.mockResolvedValue({ generationId: 'gen-style-001' });
+      mockLeonardoService.getGeneration.mockResolvedValue({
+        status: 'COMPLETE',
+        images: [{ url: 'https://cdn.leonardo.ai/img1.jpg', id: 'img1' }],
+      });
+      mockCloudinaryService.uploadFile.mockResolvedValue({
+        publicId: 'canvas-flow/org/ai-generated/ai_img1',
+        url: 'https://res.cloudinary.com/demo/image/upload/ai_img1.jpg',
+        resourceType: 'image',
+      });
+      mockAssetService.create.mockResolvedValue(fakeAsset);
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(8)),
+      });
+
+      jest.spyOn(global, 'setTimeout').mockImplementation((cb: () => void) => { cb(); return 0 as unknown as NodeJS.Timeout; });
+
+      await service.generate(dtoWithStyle, fakeOrgId);
+
+      expect(mockLeonardoService.createGeneration).toHaveBeenCalledWith(
+        dtoWithStyle.prompt,
+        dtoWithStyle.modelId,
+        expect.objectContaining({ presetStyle: LeonardoPresetStyle.ILLUSTRATION }),
+      );
 
       jest.restoreAllMocks();
     });

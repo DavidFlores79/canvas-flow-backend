@@ -8,9 +8,12 @@ import {
   IsMongoId,
   IsOptional,
   IsInt,
+  IsEnum,
   Min,
   Max,
 } from 'class-validator';
+
+import { LeonardoPresetStyle } from '../../leonardo/enums/LeonardoPresetStyle';
 
 export class AiGeneratePayloadDto {
   @ApiProperty({ description: 'Text prompt describing the image to generate' })
@@ -47,4 +50,9 @@ export class AiGeneratePayloadDto {
   @Min(1)
   @Max(4)
   numImages?: number;
+
+  @ApiPropertyOptional({ enum: LeonardoPresetStyle, description: 'Leonardo preset style hint' })
+  @IsOptional()
+  @IsEnum(LeonardoPresetStyle)
+  presetStyle?: LeonardoPresetStyle;
 }

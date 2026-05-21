@@ -4,6 +4,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { Logger, UnprocessableEntityException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Types } from 'mongoose';
 
 import { AssetService } from './AssetService';
@@ -14,6 +15,7 @@ import { UploadAssetPayloadDto } from '../dto/UploadAssetPayloadDto';
 import { TransformAssetPayloadDto } from '../dto/TransformAssetPayloadDto';
 import { CloudinaryService } from '../../cloudinary/service/CloudinaryService';
 import { NotFoundEntityError } from '../../shared/error/NotFoundEntityError';
+import { EnvironmentVariables } from '../../config/EnvironmentVariables';
 
 const fakeOrgId = new Types.ObjectId().toString();
 const fakeWorkspaceId = new Types.ObjectId().toString();
@@ -36,6 +38,10 @@ const mockCloudinaryService = {
   uploadFile: jest.fn(),
   deleteFile: jest.fn(),
   getTransformUrl: jest.fn(),
+};
+
+const mockConfigService = {
+  get: jest.fn().mockReturnValue(''),
 };
 
 type MockAssetModel = {
@@ -69,6 +75,10 @@ describe('AssetService', () => {
         AssetService,
         { provide: getModelToken(Asset.name), useValue: assetModel },
         { provide: CloudinaryService, useValue: mockCloudinaryService },
+        {
+          provide: ConfigService<EnvironmentVariables>,
+          useValue: mockConfigService,
+        },
       ],
     }).compile();
 
@@ -174,7 +184,9 @@ describe('AssetService', () => {
 
       expect(mockCloudinaryService.getTransformUrl).toHaveBeenCalledWith(
         fakeAsset.cloudinaryPublicId,
-        expect.objectContaining({ effect: 'e_grayscale' }),
+        expect.objectContaining({
+          transformation: expect.arrayContaining([expect.objectContaining({ effect: 'grayscale' })]),
+        }),
       );
       expect(mockFetch).toHaveBeenCalledWith(derivedUrl);
       expect(mockCloudinaryService.uploadFile).toHaveBeenCalled();
@@ -258,6 +270,7 @@ describe('AssetService', () => {
       });
 
       await expect(service.delete(fakeAssetId)).resolves.toBeUndefined();
+      expect(mockCloudinaryService.deleteFile).toHaveBeenCalledWith(fakeAsset.cloudinaryPublicId);
     });
 
     it('throws NotFoundEntityError when asset not found', async () => {
@@ -266,6 +279,7 @@ describe('AssetService', () => {
       });
 
       await expect(service.delete('nonexistent')).rejects.toThrow(NotFoundEntityError);
+      expect(mockCloudinaryService.deleteFile).not.toHaveBeenCalled();
     });
   });
 });
