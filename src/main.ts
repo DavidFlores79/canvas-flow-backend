@@ -17,8 +17,12 @@ async function bootstrap() {
   const isNotProduction =
     configService.get('DEPLOY_ENV', { infer: true }) !== 'production';
 
+  const corsOrigin = configService.get<string>(
+    'CORS_ORIGIN',
+    'http://localhost:4200',
+  );
   app.enableCors({
-    origin: ['http://localhost:4200'],
+    origin: corsOrigin.split(',').map((o) => o.trim()),
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,

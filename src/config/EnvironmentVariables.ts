@@ -18,4 +18,5 @@ export interface EnvironmentVariables {
   LEONARDO_API_KEY: string;
   LEONARDO_API_BASE_URL: string;
   REMOVE_BG_API_KEY: string;
+  CORS_ORIGIN: string;
 }
